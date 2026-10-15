@@ -62,11 +62,23 @@ const bindCollaboratorInvitesToUser = async (user: Pick<User, "id" | "email" | "
     .where(sql`lower(${collaboratorInviteTable.email}) = lower(${normalizeEmail(user.email)})`);
 };
 
+const getCollaboratorRoleForRepo = async (
+  user: Pick<User, "id" | "email">,
+  owner: string,
+  repo: string,
+): Promise<"admin" | "editor" | null> => {
+  const collaborator = await db.query.collaboratorTable.findFirst({
+    where: collaboratorMatchesUserForRepo(user, owner, repo),
+  });
+  return (collaborator?.role as "admin" | "editor") ?? null;
+};
+
 export {
   bindCollaboratorInvitesToUser,
   collaboratorMatchesInvite,
   collaboratorMatchesUser,
   collaboratorMatchesUserForRepo,
   findVerifiedUserByEmail,
+  getCollaboratorRoleForRepo,
   normalizeEmail,
 };

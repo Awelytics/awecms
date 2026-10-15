@@ -47,6 +47,15 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Tooltip,
   TooltipContent,
@@ -54,11 +63,12 @@ import {
 } from "@/components/ui/tooltip";
 import { requireApiSuccess } from "@/lib/api-client";
 import { toast } from "sonner";
-import { BookText, EllipsisVertical, Loader } from "lucide-react";
+import { BookText, EllipsisVertical, Loader, Shield, Pencil } from "lucide-react";
 
 type Collaborator = {
   id: number;
   email: string;
+    role?: "admin" | "editor" | string;
 };
 
 type AddCollaboratorState = {
@@ -95,6 +105,8 @@ function InviteCollaboratorsDialog({
   triggerVariant?: "default" | "outline";
   triggerSize?: "default" | "sm";
 }) {
+  const [selectedRole, setSelectedRole] = useState<"admin" | "editor">("editor");
+
   const parsedInviteEmails = useMemo(() => {
     return Array.from(
       new Set(
@@ -117,21 +129,58 @@ function InviteCollaboratorsDialog({
         <DialogHeader>
           <DialogTitle>Invite collaborators</DialogTitle>
           <DialogDescription>
-            Enter one or multiple email addresses, separated by commas or new
-            lines.
+            Enter email addresses and choose their role in this repository.
           </DialogDescription>
         </DialogHeader>
         <form action={action} className="space-y-4">
           <input type="hidden" name="owner" value={owner} />
           <input type="hidden" name="repo" value={repo} />
-          <Textarea
-            name="emails"
-            placeholder="alice@example.com, bob@example.com"
-            value={value}
-            onChange={(event) => onValueChange(event.target.value)}
-            required
-            rows={6}
-          />
+          <input type="hidden" name="role" value={selectedRole} />
+          
+          <div className="space-y-2">
+            <Label htmlFor="emails">Email addresses</Label>
+            <Textarea
+              id="emails"
+              name="emails"
+              placeholder="alice@example.com, bob@example.com"
+              value={value}
+              onChange={(event) => onValueChange(event.target.value)}
+              required
+              rows={4}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="role-select">Role</Label>
+            <Select
+              value={selectedRole}
+              onValueChange={(val) => setSelectedRole(val as "admin" | "editor")}
+            >
+              <SelectTrigger id="role-select" className="w-full">
+                <SelectValue placeholder="Select a role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="editor">
+                  <div className="flex items-center gap-2">
+                    <Pencil className="size-4 text-muted-foreground" />
+                    <div className="flex flex-col text-left">                      <span className="font-medium">Editor</span>
+                      <span className="text-xs text-muted-foreground">Drafts only (Save with [skip ci]), cannot publish to live site</span>
+                    </div>
+                  </div>
+                </SelectItem>
+                <SelectItem value="admin">
+                  <div className="flex items-center gap-2">
+                    <Shield className="size-4 text-primary" />
+                    <div className="flex flex-col text-left">
+                      <span className="font-medium">Admin</span>
+                      <span className="text-xs text-muted-foreground">Full access: edit content and publish to production</span>
+                    </div>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {state?.error ? (
             <p className="text-sm font-medium text-destructive">
               {state.error}
@@ -419,8 +468,14 @@ export function Collaborators({
                     {collaborator.email.split("@")[0].substring(0, 2)}
                   </AvatarFallback>
                 </Avatar>
-                <div className="font-medium text-left truncate">
-                  {collaborator.email}
+                <div className="flex items-center gap-2 text-left truncate">
+                  <span className="font-medium truncate">{collaborator.email}</span>
+                  <Badge
+                    variant={collaborator.role === "admin" ? "default" : "secondary"}
+                    className="text-xs capitalize font-normal shrink-0"
+                  >
+                    {collaborator.role === "admin" ? "🛡️ Admin" : "✏️ Editor"}
+                  </Badge>
                 </div>
 
                 <DropdownMenu>

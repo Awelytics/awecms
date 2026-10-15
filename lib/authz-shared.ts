@@ -47,41 +47,43 @@ export const isUserAllowedToPublish = ({
   user,
   owner,
   publishConfig,
+  role,
 }: {
   user?: Pick<User, "email" | "isAdmin" | "githubUsername" | "name"> | null;
   owner: string;
   publishConfig?: PublishConfigLike;
+  role?: "admin" | "editor" | null;
 }): boolean => {
-  if (!user || !publishConfig || publishConfig.enabled === false) return false;
+  if (!user) return false;
+  if (publishConfig && publishConfig.enabled === false) return false;
+
+  // 1. Direct role check: admin role always grants publish, editor role denies it
+  if (role === "admin") return true;
+  if (role === "editor") return false;
 
   const userEmail = user.email?.trim().toLowerCase();
   const userName = user.name?.trim().toLowerCase();
   const githubUser = (user.githubUsername || user.name)?.trim().toLowerCase();
 
-  // 1. Direct match by email, username, or name
-  const allowedUsers = Array.isArray(publishConfig.users)
-    ? publishConfig.users.map((u) => String(u).trim().toLowerCase())
-    : [];
+  // 2. Direct match by email, username, or name in publish config
+  if (publishConfig?.users) {
+    const allowedUsers = publishConfig.users.map((u) => String(u).trim().toLowerCase());
+    if (userEmail && allowedUsers.includes(userEmail)) return true;
+    if (userName && allowedUsers.includes(userName)) return true;
+    if (githubUser && allowedUsers.includes(githubUser)) return true;
+  }
 
-  if (userEmail && allowedUsers.includes(userEmail)) return true;
-  if (userName && allowedUsers.includes(userName)) return true;
-  if (githubUser && allowedUsers.includes(githubUser)) return true;
+  // 3. Wildcard role
+  if (publishConfig?.roles?.includes("*")) return true;
 
-  // 2. Wildcard role
-  if (publishConfig.roles?.includes("*")) return true;
-
-  // 3. Admin / repo owner check
+  // 4. Platform superadmin / repo owner check
   const isOwner = Boolean(githubUser && githubUser === owner.toLowerCase());
   const isAdmin = Boolean(user.isAdmin || isOwner);
 
-  if (publishConfig.roles?.includes("admin") && isAdmin) return true;
+  if (publishConfig?.roles?.includes("admin") && isAdmin) return true;
 
-  // 4. Default: if no users and no roles defined, allow admins/owners
-  if (!publishConfig.roles?.length && !publishConfig.users?.length) {
-    return isAdmin;
-  }
-
-  return false;
+  // 5. Default fallback if no users and no roles defined: allow admins/owners
+  return isAdmin;
 };
 
 export { hasGithubIdentity, assertGithubIdentity };

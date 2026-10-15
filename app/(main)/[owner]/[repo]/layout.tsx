@@ -4,6 +4,8 @@ import { getToken } from "@/lib/token";
 import { RepoProvider } from "@/contexts/repo-context";
 import { getServerSession } from "@/lib/session-server";
 import { getRepoSnapshot } from "@/lib/github-cache-file";
+import { hasAdminAccess } from "@/lib/admin";
+import { getCollaboratorRoleForRepo } from "@/lib/collaborator-access";
 import { GithubAuthExpired } from "@/components/github-auth-expired";
 import { isGithubAuthError } from "@/lib/github-auth";
 import { invalidateSessionForGithubAuthError } from "@/lib/github-auth-server";
@@ -52,8 +54,27 @@ export default async function Layout({
       );
     }
 
+    // Determine the current user's role for this repository
+    const isSuperAdmin = hasAdminAccess(user);
+    const isRepoOwner = Boolean(
+      user.githubUsername && user.githubUsername.toLowerCase() === owner.toLowerCase()
+    );
+
+    let currentUserRole: "admin" | "editor" = "editor";
+    if (isSuperAdmin || isRepoOwner) {
+      currentUserRole = "admin";
+    } else {
+      const dbRole = await getCollaboratorRoleForRepo(user, owner, repo);
+      if (dbRole) {
+        currentUserRole = dbRole;
+      } else if (user.githubUsername) {
+        // Authenticated GitHub user with repository access
+        currentUserRole = "admin";
+      }
+    }
+
     return (
-      <RepoProvider repo={repoInfo}>
+      <RepoProvider repo={{ ...repoInfo, currentUserRole }}>
         {children}
       </RepoProvider>
     );

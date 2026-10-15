@@ -87,7 +87,8 @@ const collaboratorTable = pgTable("collaborator", {
   branch: text("branch"),
   email: text("email").notNull(),
   userId: text("user_id").references(() => userTable.id),
-  invitedBy: text("invited_by").references(() => userTable.id)
+  invitedBy: text("invited_by").references(() => userTable.id),
+  role: text("role").notNull().default("editor")
 }, table => ({
   idx_collaborator_owner_repo_email: index("idx_collaborator_owner_repo_email").on(table.owner, table.repo, table.email),
   idx_collaborator_userId: index("idx_collaborator_userId").on(table.userId),
@@ -106,7 +107,8 @@ const collaboratorInviteTable = pgTable("collaborator_invite", {
   repo: text("repo").notNull(),
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow()
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  role: text("role").notNull().default("editor")
 }, table => ({
   uq_collaborator_invite_token: uniqueIndex("uq_collaborator_invite_token").on(table.token),
   idx_collaborator_invite_owner_repo_email: index("idx_collaborator_invite_owner_repo_email").on(table.owner, table.repo, table.email),

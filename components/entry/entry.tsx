@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useUser } from "@/contexts/user-context";
+import { useRepo } from "@/contexts/repo-context";
 import { isUserAllowedToPublish } from "@/lib/authz-shared";
 import { useConfig } from "@/contexts/config-context";
 import { parseAndValidateConfig } from "@/lib/config";
@@ -118,6 +119,7 @@ export function Entry({
 
   const router = useRouter();
   const { user } = useUser();
+  const { currentUserRole } = useRepo();
   const isPublishSubmitRef = useRef(false);
   
   const { config } = useConfig();
@@ -144,33 +146,31 @@ export function Entry({
   const canDelete = operations.delete;
 
   const publishSettings = config.object?.settings?.publish;
-  const isPublishConfigured = Boolean(
-    publishSettings === true ||
-    (typeof publishSettings === "object" && publishSettings?.enabled !== false) ||
-    schema?.operations?.publish === true
-  );
-  const isPublishAllowedForSchema = operations.publish !== false;
+  const isPublishExplicitlyDisabled =
+    publishSettings === false ||
+    (typeof publishSettings === "object" && publishSettings?.enabled === false) ||
+    operations.publish === false;
+
   const canPublish = useMemo(() => {
-    if (!isPublishConfigured || !isPublishAllowedForSchema || path === ".pages.yml") {
+    if (path === ".pages.yml" || isPublishExplicitlyDisabled) {
       return false;
     }
 
-    const userEmail = user?.email?.trim().toLowerCase();
-    const userName = user?.name?.trim().toLowerCase();
-    const allowedUsers = Array.isArray(publishSettings?.users)
-      ? publishSettings.users.map((u: string) => String(u).trim().toLowerCase())
-      : [];
-
-    if (userEmail && allowedUsers.includes(userEmail)) return true;
-    if (userName && allowedUsers.includes(userName)) return true;
-    if (publishSettings?.roles?.includes("*")) return true;
+    // Role-based check: site admin and platform superadmins can publish without touching .pages.yml
+    if (currentUserRole === "admin") {
+      return true;
+    }
+    if (currentUserRole === "editor") {
+      return false;
+    }
 
     return isUserAllowedToPublish({
       user,
       owner: config.owner,
       publishConfig: typeof publishSettings === "object" ? publishSettings : undefined,
+      role: currentUserRole,
     });
-  }, [config.owner, isPublishAllowedForSchema, isPublishConfigured, path, publishSettings, user]);
+  }, [config.owner, currentUserRole, isPublishExplicitlyDisabled, path, publishSettings, user]);
 
   const publishLabel = typeof publishSettings === "object" && publishSettings?.label
     ? publishSettings.label

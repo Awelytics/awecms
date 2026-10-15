@@ -73,11 +73,13 @@ const createCollaboratorInviteUrl = async ({
   owner,
   repo,
   baseUrl,
+  role = "editor",
 }: {
   email: string;
   owner: string;
   repo: string;
   baseUrl: string;
+  role?: "admin" | "editor";
 }) => {
   const token = generateInviteToken();
   const expiresAt = new Date(
@@ -100,6 +102,7 @@ const createCollaboratorInviteUrl = async ({
     owner,
     repo,
     expiresAt,
+    role,
   });
 
   const inviteUrl = new URL("/sign-in/collaborator", baseUrl);
@@ -135,9 +138,12 @@ const handleAddCollaborator = async (prevState: any, formData: FormData) => {
 		if (!emailsValidation.success || emailsValidation.data.length === 0) throw new Error("Invalid email list");
     const emails = emailsValidation.data;
 
+    const roleValidation = z.enum(["admin", "editor"]).safeParse(formData.get("role") ?? "editor");
+    const role: "admin" | "editor" = roleValidation.success ? roleValidation.data : "editor";
+
     const { repoAccess, installation } = await assertRepoInInstallation(user, owner, repo);
 
-		const baseUrl = getBaseUrl();
+    const baseUrl = getBaseUrl();
     const repoUrl = new URL(`/${owner}/${repo}`, baseUrl).toString();
     const createdCollaborators: (typeof collaboratorTable.$inferSelect)[] = [];
     const errors: string[] = [];
@@ -155,9 +161,17 @@ const handleAddCollaborator = async (prevState: any, formData: FormData) => {
       ),
 			});
       if (collaborator) {
+        const updates: Partial<typeof collaboratorTable.$inferInsert> = {};
         if (existingUser && collaborator.userId !== existingUser.id) {
+          updates.userId = existingUser.id;
+        }
+        if (collaborator.role !== role) {
+          updates.role = role;
+        }
+
+        if (Object.keys(updates).length > 0) {
           const updated = await db.update(collaboratorTable)
-            .set({ userId: existingUser.id })
+            .set(updates)
             .where(eq(collaboratorTable.id, collaborator.id))
             .returning();
           if (updated.length > 0) {
@@ -175,6 +189,7 @@ const handleAddCollaborator = async (prevState: any, formData: FormData) => {
           owner,
           repo,
           baseUrl,
+          role,
         });
         try {
           const html = await render(
@@ -227,7 +242,8 @@ const handleAddCollaborator = async (prevState: any, formData: FormData) => {
         repo: repoAccess.repoName,
         email: normalizedEmail,
         userId: existingUser?.id ?? null,
-        invitedBy: user.id
+        invitedBy: user.id,
+        role: role,
       }).returning();
 
       if (inserted.length > 0) {
