@@ -1,14 +1,16 @@
+import { type NextRequest } from "next/server";
 import { createOctokitInstance } from "@/lib/utils/octokit";
 import { getToken } from "@/lib/token";
 import { requireApiUserSession } from "@/lib/session-server";
-import { toErrorResponse } from "@/lib/api-error";
+
+export const dynamic = "force-dynamic";
 
 /**
  * Returns latest deployment status for a branch (Cloudflare Pages / GitHub Checks).
  * GET /api/[owner]/[repo]/[branch]/status
  */
 export async function GET(
-  request: Request,
+  request: NextRequest,
   context: { params: Promise<{ owner: string; repo: string; branch: string }> }
 ) {
   try {
@@ -17,59 +19,79 @@ export async function GET(
     if ("response" in sessionResult) return sessionResult.response;
     const user = sessionResult.user;
 
-    const { token } = await getToken(user, params.owner, params.repo, true);
-    if (!token) throw new Error("Token not found");
+    const { token } = await getToken(user, params.owner, params.repo, false);
+    if (!token) {
+      return Response.json({ state: "idle", context: null, description: null, targetUrl: null, sha: null });
+    }
 
     const octokit = createOctokitInstance(token);
 
-    // Fetch commit statuses and check runs in parallel
-    const [statusResponse, checkRunsResponse] = await Promise.all([
-      octokit.rest.repos.getCombinedStatusForRef({
+    // Safely check commit statuses
+    let combined: any = { statuses: [], total_count: 0, state: "pending", sha: null };
+    try {
+      const res = await octokit.rest.repos.getCombinedStatusForRef({
         owner: params.owner,
         repo: params.repo,
         ref: params.branch,
-      }),
-      octokit.rest.checks.listForRef({
-        owner: params.owner,
-        repo: params.repo,
-        ref: params.branch,
-      }),
-    ]);
+      });
+      combined = res.data;
+    } catch {
+      // Ignore if statuses are restricted
+    }
 
-    const combined = statusResponse.data;
-    const checkRuns = checkRunsResponse.data.check_runs;
+    // Safely check check-runs (Cloudflare Pages)
+    let checkRuns: any[] = [];
+    try {
+      const res = await octokit.rest.checks.listForRef({
+        owner: params.owner,
+        repo: params.repo,
+        ref: params.branch,
+      });
+      checkRuns = res.data.check_runs || [];
+    } catch {
+      // Ignore if checks permission is missing
+    }
 
     // 1. Look for Cloudflare Pages check run
-    const cloudflareCheck = checkRuns.find(
-      (run) =>
-        /cloudflare|pages/i.test(run.name) ||
-        /cloudflare|pages/i.test(run.app?.name || "")
-    ) || checkRuns[0];
+    const cloudflareCheck =
+      checkRuns.find(
+        (run) =>
+          /cloudflare|pages/i.test(run.name) ||
+          /cloudflare|pages/i.test(run.app?.name || "")
+      ) || checkRuns[0];
 
     if (cloudflareCheck) {
       let state: "pending" | "success" | "failure" = "pending";
       if (cloudflareCheck.status === "completed") {
-        state = cloudflareCheck.conclusion === "success" ? "success" : "failure";
+        state =
+          cloudflareCheck.conclusion === "success" ? "success" : "failure";
       }
 
       return Response.json({
         state,
         context: cloudflareCheck.name,
-        description: cloudflareCheck.output?.title || cloudflareCheck.conclusion || cloudflareCheck.status,
+        description:
+          cloudflareCheck.output?.title ||
+          cloudflareCheck.conclusion ||
+          cloudflareCheck.status,
         targetUrl: cloudflareCheck.html_url || null,
         sha: cloudflareCheck.head_sha,
       });
     }
 
     // 2. Look for Cloudflare commit status
-    const cloudflareStatus = combined.statuses.find((s) =>
-      /cloudflare|pages/i.test(s.context)
-    ) || combined.statuses[0];
+    const cloudflareStatus =
+      combined.statuses.find((s: any) => /cloudflare|pages/i.test(s.context)) ||
+      combined.statuses[0];
 
     if (cloudflareStatus) {
       let state: "pending" | "success" | "failure" = "pending";
       if (cloudflareStatus.state === "success") state = "success";
-      else if (cloudflareStatus.state === "failure" || cloudflareStatus.state === "error") state = "failure";
+      else if (
+        cloudflareStatus.state === "failure" ||
+        cloudflareStatus.state === "error"
+      )
+        state = "failure";
 
       return Response.json({
         state,
@@ -103,6 +125,12 @@ export async function GET(
     });
   } catch (error: any) {
     console.error(error);
-    return toErrorResponse(error);
+    return Response.json({
+      state: "idle",
+      context: null,
+      description: null,
+      targetUrl: null,
+      sha: null,
+    });
   }
 }

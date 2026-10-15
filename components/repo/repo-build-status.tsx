@@ -34,6 +34,7 @@ export function RepoBuildStatus({
       return latestData?.state === "pending" ? 3000 : 25000;
     },
     revalidateOnFocus: true,
+    shouldRetryOnError: false,
   });
 
   if (!data || data.state === "idle") {
