@@ -22,31 +22,35 @@ const description = "The No-Hassle CMS for GitHub";
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
   title: {
-    template: "%s | Pages CMS",
-    default: "Pages CMS",
+    template: "%s | Awelytics CMS",
+    default: "Awelytics CMS",
   },
   description,
+  robots: {
+    index: false,
+    follow: false,
+  },
   alternates: {
     canonical: "/",
   },
   openGraph: {
     type: "website",
     url: appUrl,
-    siteName: "Pages CMS",
-    title: "Pages CMS",
+    siteName: "Awelytics CMS",
+    title: "Awelytics CMS",
     description,
     images: [
       {
         url: socialImage,
         width: 1200,
         height: 630,
-        alt: "Pages CMS social card",
+        alt: "Awelytics CMS social card",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Pages CMS",
+    title: "Awelytics CMS",
     description,
     images: [socialImage],
   },

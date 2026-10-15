@@ -164,7 +164,7 @@ export const auth = betterAuth({
       sendVerificationOTP: async ({ email, otp, type }) => {
         if (type !== "sign-in") return;
 
-        const subject = `Your Pages CMS temporary code is ${otp}`;
+        const subject = `Your Awelytics CMS temporary code is ${otp}`;
         const html = await render(
           LoginEmailTemplate({
             email,

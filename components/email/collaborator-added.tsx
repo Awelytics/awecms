@@ -38,7 +38,7 @@ export const CollaboratorAddedEmailTemplate = ({
     <Html>
       <Head />
       <Preview>
-        You were added to &quot;{repoName}&quot; on Pages CMS
+        You were added to &quot;{repoName}&quot; on Awelytics CMS
       </Preview>
       <Tailwind>
         <Body
@@ -75,7 +75,7 @@ export const CollaboratorAddedEmailTemplate = ({
               >
                 {invitedByName}
               </Link>{" "}
-              added you to the &quot;{repoName}&quot; project on Pages CMS.
+              added you to the &quot;{repoName}&quot; project on Awelytics CMS.
               You already have access, so there is nothing to accept.
             </Text>
             <Section className="text-center mt-[24px] mb-[24px]">
