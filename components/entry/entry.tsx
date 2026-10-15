@@ -151,27 +151,27 @@ export function Entry({
   );
   const isPublishAllowedForSchema = operations.publish !== false;
   const canPublish = useMemo(() => {
-    const isAllowed = isUserAllowedToPublish({
+    if (!isPublishConfigured || !isPublishAllowedForSchema || path === ".pages.yml") {
+      return false;
+    }
+
+    const userEmail = user?.email?.trim().toLowerCase();
+    const userName = user?.name?.trim().toLowerCase();
+    const allowedUsers = Array.isArray(publishSettings?.users)
+      ? publishSettings.users.map((u: string) => String(u).trim().toLowerCase())
+      : [];
+
+    if (userEmail && allowedUsers.includes(userEmail)) return true;
+    if (userName && allowedUsers.includes(userName)) return true;
+    if (publishSettings?.roles?.includes("*")) return true;
+
+    return isUserAllowedToPublish({
       user,
       owner: config.owner,
       publishConfig: typeof publishSettings === "object" ? publishSettings : undefined,
     });
-
-    console.error("DIAGNOSTIC PUBLISH:", {
-      isPublishConfigured,
-      isPublishAllowedForSchema,
-      isUserAllowed: isAllowed,
-      currentUser: user,
-      userEmail: user?.email,
-      publishSettings,
-    });
-
-    if (!isPublishConfigured || !isPublishAllowedForSchema || path === ".pages.yml") {
-      return false;
-    }
-    return isAllowed;
   }, [config.owner, isPublishAllowedForSchema, isPublishConfigured, path, publishSettings, user]);
-  
+
   const publishLabel = typeof publishSettings === "object" && publishSettings?.label
     ? publishSettings.label
     : "Publish to site";

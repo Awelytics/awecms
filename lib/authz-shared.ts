@@ -48,36 +48,37 @@ export const isUserAllowedToPublish = ({
   owner,
   publishConfig,
 }: {
-  user?: Pick<User, "email" | "isAdmin" | "githubUsername"> | null;
+  user?: Pick<User, "email" | "isAdmin" | "githubUsername" | "name"> | null;
   owner: string;
   publishConfig?: PublishConfigLike;
 }): boolean => {
-  if (!user) return false;
+  if (!user || !publishConfig || publishConfig.enabled === false) return false;
 
-  const isOwner = Boolean(
-    user.githubUsername && user.githubUsername.toLowerCase() === owner.toLowerCase(),
-  );
+  const userEmail = user.email?.trim().toLowerCase();
+  const userName = user.name?.trim().toLowerCase();
+  const githubUser = (user.githubUsername || user.name)?.trim().toLowerCase();
+
+  // 1. Direct match by email, username, or name
+  const allowedUsers = Array.isArray(publishConfig.users)
+    ? publishConfig.users.map((u) => String(u).trim().toLowerCase())
+    : [];
+
+  if (userEmail && allowedUsers.includes(userEmail)) return true;
+  if (userName && allowedUsers.includes(userName)) return true;
+  if (githubUser && allowedUsers.includes(githubUser)) return true;
+
+  // 2. Wildcard role
+  if (publishConfig.roles?.includes("*")) return true;
+
+  // 3. Admin / repo owner check
+  const isOwner = Boolean(githubUser && githubUser === owner.toLowerCase());
   const isAdmin = Boolean(user.isAdmin || isOwner);
 
-  // If no specific restrictions are set, restrict to admins and repo owner by default
-  if (!publishConfig?.roles?.length && !publishConfig?.users?.length) {
+  if (publishConfig.roles?.includes("admin") && isAdmin) return true;
+
+  // 4. Default: if no users and no roles defined, allow admins/owners
+  if (!publishConfig.roles?.length && !publishConfig.users?.length) {
     return isAdmin;
-  }
-
-  if (publishConfig.roles?.includes("admin") && isAdmin) {
-    return true;
-  }
-
-  const userEmail = user.email?.toLowerCase();
-  const githubUser = user.githubUsername?.toLowerCase();
-
-  if (
-    publishConfig.users?.some((u) => {
-      const target = u.trim().toLowerCase();
-      return target === userEmail || target === githubUser;
-    })
-  ) {
-    return true;
   }
 
   return false;
