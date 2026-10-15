@@ -67,6 +67,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner";
 import { EllipsisVertical, History, Lock, LockOpen, Save } from "lucide-react";
 import useSWR, { useSWRConfig } from "swr";
+import { RepoBuildStatus } from "@/components/repo/repo-build-status";
+
 
 type LintView = {
   state: {
@@ -415,6 +417,10 @@ export function Entry({
           setHasRegisteredChanges(false);
         }
 
+        if (isPublish) {
+          void mutate(`/api/${config.owner}/${config.repo}/${encodeURIComponent(config.branch)}/status`);
+        }
+        
         if (!path && schemaType === "collection") router.push(`/${config.owner}/${config.repo}/${encodeURIComponent(config.branch)}/collection/${encodeURIComponent(name)}/edit/${encodeURIComponent(data.data.path)}`);
         if (schemaType === "collection") {
           const collectionKeyPrefix = `/api/${config.owner}/${config.repo}/${encodeURIComponent(config.branch)}/collections/${encodeURIComponent(name)}?`;
@@ -451,7 +457,7 @@ export function Entry({
       setIsSaving(false);
     }
   };
-  
+
   const isBusy = isLoading || isSaving;
 
   const handlePublish = useCallback(() => {
@@ -704,6 +710,12 @@ export function Entry({
       </div>
       {showHeaderActions && (
         <div className="flex shrink-0 items-center gap-x-2">
+          <RepoBuildStatus
+            owner={config.owner}
+            repo={config.repo}
+            branch={config.branch}
+            siteUrl={config.object?.settings?.site || config.object?.site}
+          />
           {headerActionsNode}
           {path && (
             historyData && historyData.length > 0 && !isLoading

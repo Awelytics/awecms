@@ -636,6 +636,16 @@ export async function DELETE(
           email: user.email,
         }
       : undefined;
+
+    const publishConfig = config.object?.settings?.publish;
+    const isPublishConfigured = Boolean(
+      publishConfig === true ||
+      (typeof publishConfig === "object" && publishConfig?.enabled !== false) ||
+      schema?.operations?.publish === true
+    );
+    const shouldSkipCi = isPublishConfigured
+      ? (typeof publishConfig === "object" ? publishConfig.skipCiOnSave !== false : true)
+      : false;
     
     const octokit = createOctokitInstance(token);
     const response = await octokit.rest.repos.deleteFile({
@@ -659,6 +669,7 @@ export async function DELETE(
           userName: committer?.name,
           userEmail: committer?.email,
         }),
+        skipCi: shouldSkipCi,
       }),
       committer,
     });

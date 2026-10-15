@@ -109,6 +109,16 @@ export async function POST(
           email: user.email,
         }
       : undefined;
+
+    const publishConfig = config.object?.settings?.publish;
+    const isPublishConfigured = Boolean(
+      publishConfig === true ||
+      (typeof publishConfig === "object" && publishConfig?.enabled !== false) ||
+      schema?.operations?.publish === true
+    );
+    const shouldSkipCi = isPublishConfigured
+      ? (typeof publishConfig === "object" ? publishConfig.skipCiOnSave !== false : true)
+      : false;
     
     const response = await githubRenameFile(
       token,
@@ -123,6 +133,7 @@ export async function POST(
         contentName: data.name,
         user: user.email || user.name || String(user.id || ""),
         committer,
+        skipCi: shouldSkipCi,
       }
     );
 
@@ -178,6 +189,7 @@ const githubRenameFile = async (
     contentName?: string;
     user?: string;
     committer?: { name: string; email: string };
+    skipCi?: boolean;
   },
 ) => {
   const octokit = createOctokitInstance(token);
@@ -231,6 +243,7 @@ const githubRenameFile = async (
         userName: options?.committer?.name,
         userEmail: options?.committer?.email,
       }),
+      skipCi: options?.skipCi,
     }),
     tree: newTreeSha,
     parents: [currentSha],
