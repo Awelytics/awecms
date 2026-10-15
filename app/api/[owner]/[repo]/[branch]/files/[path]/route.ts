@@ -7,7 +7,7 @@ import { stringify, parse } from "@/lib/serialization";
 import { deepMap, generateZodSchema, getSchemaByName, sanitizeObject } from "@/lib/schema";
 import { getConfig, updateConfig } from "@/lib/config-store";
 import { getFileExtension, getFileName, normalizePath, serializedTypes, getParentPath } from "@/lib/utils/file";
-import { assertGithubIdentity } from "@/lib/authz-shared";
+import { assertGithubIdentity, isUserAllowedToPublish } from "@/lib/authz-shared";
 import { getToken } from "@/lib/token";
 import { updateFileCache } from "@/lib/github-cache-file";
 import { createHttpError, toErrorResponse } from "@/lib/api-error";
@@ -209,6 +209,33 @@ export async function POST(
         }
       : undefined;
     
+    const isPublish = Boolean(data.publish);
+    const publishConfig = config?.object?.settings?.publish;
+    const isPublishConfigured = Boolean(
+      publishConfig === true ||
+      (typeof publishConfig === "object" && publishConfig?.enabled !== false) ||
+      schema?.operations?.publish === true
+    );
+
+    if (isPublish) {
+      const allowed = isUserAllowedToPublish({
+        user,
+        owner: params.owner,
+        publishConfig: typeof publishConfig === "object" ? publishConfig : undefined,
+      });
+      if (!allowed) {
+        throw createHttpError("You do not have permission to publish.", 403);
+      }
+    }
+
+    const shouldSkipCi = isPublishConfigured
+      ? !isPublish && (typeof publishConfig === "object" ? publishConfig.skipCiOnSave !== false : true)
+      : Boolean(data.skipCi);
+
+    const saveAction: "create" | "update" | "publish" = isPublish
+      ? "publish"
+      : (data.sha ? "update" : "create");
+
     const response = await githubSaveFile(
       token,
       params.owner,
@@ -224,6 +251,9 @@ export async function POST(
         user: user.email || user.name || String(user.id || ""),
         onConflict,
         committer,
+        action: saveAction,
+        skipCi: shouldSkipCi,
+        isPublish,
       }
     );
   
@@ -267,11 +297,12 @@ export async function POST(
       );
     }
 
+    const actionLabel = isPublish ? "published" : "saved";
     return Response.json({
       status: "success",
       message: savedPath !== normalizedPath
-        ? `File "${normalizedPath}" saved successfully but renamed to "${savedPath}" to avoid naming conflict.`
-        : `File "${normalizedPath}" saved successfully.`,
+        ? `File "${normalizedPath}" ${actionLabel} successfully but renamed to "${savedPath}" to avoid naming conflict.`
+        : `File "${normalizedPath}" ${actionLabel} successfully.`,
       data: {
         type: response?.data.content?.type,
         sha: response?.data.content?.sha,
@@ -287,6 +318,46 @@ export async function POST(
     console.error(error);
     return toErrorResponse(error);
   }
+};
+
+// Helper to create an empty commit when publishing unchanged content
+const createEmptyPublishCommit = async (
+  octokit: any,
+  owner: string,
+  repo: string,
+  branch: string,
+  message: string,
+  committer?: { name: string; email: string },
+) => {
+  const refData = await octokit.rest.git.getRef({
+    owner,
+    repo,
+    ref: `heads/${branch}`,
+  });
+  const currentCommitSha = refData.data.object.sha;
+  const currentCommit = await octokit.rest.git.getCommit({
+    owner,
+    repo,
+    commit_sha: currentCommitSha,
+  });
+
+  const newCommit = await octokit.rest.git.createCommit({
+    owner,
+    repo,
+    message,
+    tree: currentCommit.data.tree.sha,
+    parents: [currentCommitSha],
+    committer,
+  });
+
+  await octokit.rest.git.updateRef({
+    owner,
+    repo,
+    ref: `heads/${branch}`,
+    sha: newCommit.data.sha,
+  });
+
+  return newCommit.data;
 };
 
 // Helper function to save a file to GitHub (with retry logic for new files)
@@ -305,17 +376,22 @@ const githubSaveFile = async (
     user?: string;
     onConflict?: "rename" | "error";
     committer?: { name: string; email: string };
+    action?: "create" | "update" | "publish";
+    skipCi?: boolean;
+    isPublish?: boolean;
   },
 ) => {
   // We disable retries for 409 errors as it means the file has changed (conflict on SHA)
   const octokit = createOctokitInstance(token, { retry: { doNotRetry: [409] } });
-  
+  const commitAction: "create" | "update" | "publish" =
+    options?.action || (sha ? "update" : "create");
+
   const message = resolveCommitMessage({
     configObject: options?.configObject,
     templatesOverride: options?.templatesOverride,
-    action: sha ? "update" : "create",
+    action: commitAction,
     tokens: buildCommitTokens({
-      action: sha ? "update" : "create",
+      action: commitAction,
       owner,
       repo,
       branch,
@@ -325,6 +401,7 @@ const githubSaveFile = async (
       userName: options?.committer?.name,
       userEmail: options?.committer?.email,
     }),
+    skipCi: options?.skipCi,
   });
 
   try {
@@ -341,13 +418,33 @@ const githubSaveFile = async (
     });
 
     if (response.data.content && response.data.commit) {
+      // If publishing an already identical file and GitHub did not generate a new commit SHA,
+      // create an empty commit to trigger the CI/CD pipeline
+      if (options?.isPublish && sha && response.data.commit.sha === sha) {
+        const emptyCommit = await createEmptyPublishCommit(
+          octokit,
+          owner,
+          repo,
+          branch,
+          message,
+          options.committer,
+        );
+        return {
+          ...response,
+          data: {
+            ...response.data,
+            commit: emptyCommit,
+          },
+        };
+      }
       return response;
     }
     throw new Error("Invalid response structure");
   } catch (error: any) {
-    const githubMessage = typeof error?.response?.data?.message === "string"
-      ? error.response.data.message
-      : undefined;
+    const githubMessage =
+      typeof error?.response?.data?.message === "string"
+        ? error.response.data.message
+        : undefined;
 
     if (error.status === 409) {
       if (githubMessage?.includes("Repository rule violations found")) {
@@ -368,7 +465,7 @@ const githubSaveFile = async (
     // Only handle 422 errors for new files (no sha)
     if (error.status === 422 && !sha) {
       if (options?.onConflict === "error") {
-        throw createHttpError(`File \"${path}\" already exists.`, 409);
+        throw createHttpError(`File "${path}" already exists.`, 409);
       }
 
       // Get directory contents to find next available name
@@ -376,36 +473,41 @@ const githubSaveFile = async (
       const { data } = await octokit.rest.repos.getContent({
         owner,
         repo,
-        path: parentDir || '.',
+        path: parentDir || ".",
         ref: branch,
       });
 
       if (!Array.isArray(data)) {
-        throw new Error('Expected directory listing');
+        throw new Error("Expected directory listing");
       }
 
-      const basename = path.split('/').pop() || "";
+      const basename = path.split("/").pop() || "";
       const lastDotIndex = basename.lastIndexOf(".");
-      const filename = lastDotIndex > 0 ? basename.slice(0, lastDotIndex) : basename;
-      const extension = lastDotIndex > 0 ? basename.slice(lastDotIndex + 1) : "";
-      const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const filename =
+        lastDotIndex > 0 ? basename.slice(0, lastDotIndex) : basename;
+      const extension =
+        lastDotIndex > 0 ? basename.slice(lastDotIndex + 1) : "";
+      const escapeRegExp = (value: string) =>
+        value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const escapedFilename = escapeRegExp(filename);
       const escapedExtension = escapeRegExp(extension);
       const pattern = extension
         ? new RegExp(`^${escapedFilename}-(\\d+)\\.${escapedExtension}$`)
         : new RegExp(`^${escapedFilename}-(\\d+)$`);
-      const maxNumber = Math.max(0, ...data
-        .map(file => {
+      const maxNumber = Math.max(
+        0,
+        ...data.map((file) => {
           const match = file.name.match(pattern);
           return match ? parseInt(match[1], 10) : 0;
-        }));
+        }),
+      );
 
       // Try up to 3 times with incrementing numbers
       for (let i = 1; i <= 3; i++) {
         const candidateFilename = extension
           ? `${filename}-${maxNumber + i}.${extension}`
           : `${filename}-${maxNumber + i}`;
-        const newPath = `${parentDir ? parentDir + '/' : ''}${candidateFilename}`;
+        const newPath = `${parentDir ? parentDir + "/" : ""}${candidateFilename}`;
         const fallbackMessage = resolveCommitMessage({
           configObject: options?.configObject,
           templatesOverride: options?.templatesOverride,
@@ -421,17 +523,19 @@ const githubSaveFile = async (
             userName: options?.committer?.name,
             userEmail: options?.committer?.email,
           }),
+          skipCi: options?.skipCi,
         });
         try {
-          const response = await octokit.rest.repos.createOrUpdateFileContents({
-            owner,
-            repo,
-            path: newPath,
-            message: fallbackMessage,
-            content: contentBase64,
-            branch,
-            committer: options?.committer,
-          });
+          const response =
+            await octokit.rest.repos.createOrUpdateFileContents({
+              owner,
+              repo,
+              path: newPath,
+              message: fallbackMessage,
+              content: contentBase64,
+              branch,
+              committer: options?.committer,
+            });
 
           if (response.data.content && response.data.commit) {
             return response;

@@ -4,6 +4,8 @@ import { Fragment, useEffect, useState, useMemo, useCallback, useRef } from "rea
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useUser } from "@/contexts/user-context";
+import { isUserAllowedToPublish } from "@/lib/authz-shared";
 import { useConfig } from "@/contexts/config-context";
 import { parseAndValidateConfig } from "@/lib/config";
 import { resolveContentOperations } from "@/lib/operations";
@@ -113,10 +115,12 @@ export function Entry({
   const { mutate } = useSWRConfig();
 
   const router = useRouter();
+  const { user } = useUser();
+  const isPublishSubmitRef = useRef(false);
   
   const { config } = useConfig();
   if (!config) throw new Error(`Configuration not found.`);
-  
+
   const schema = useMemo(() => {
     if (!name) return;
     return getSchemaByName(config?.object, name)
@@ -136,6 +140,28 @@ export function Entry({
   const canCreate = operations.create;
   const canRename = operations.rename;
   const canDelete = operations.delete;
+
+  const publishSettings = config.object?.settings?.publish;
+  const isPublishConfigured = Boolean(
+    publishSettings === true ||
+    (typeof publishSettings === "object" && publishSettings?.enabled !== false) ||
+    schema?.operations?.publish === true
+  );
+  const isPublishAllowedForSchema = operations.publish !== false;
+  const canPublish = useMemo(() => {
+    if (!isPublishConfigured || !isPublishAllowedForSchema || path === ".pages.yml") {
+      return false;
+    }
+    return isUserAllowedToPublish({
+      user,
+      owner: config.owner,
+      publishConfig: typeof publishSettings === "object" ? publishSettings : undefined,
+    });
+  }, [config.owner, isPublishAllowedForSchema, isPublishConfigured, path, publishSettings, user]);
+
+  const publishLabel = typeof publishSettings === "object" && publishSettings?.label
+    ? publishSettings.label
+    : "Publish to site";
   const isFileEditorMode = !schema?.fields || schema.fields.length === 0;
   const filenameFieldMode = useMemo(() => {
     if (!schema || schema.type !== "collection") return "hidden";
@@ -311,8 +337,10 @@ export function Entry({
 
   const onSubmit = async (contentObject: Record<string, unknown>) => {
     setIsSaving(true);
+    const isPublish = isPublishSubmitRef.current;
+    isPublishSubmitRef.current = false;
     const submitStartChangeVersion = changeVersionRef.current;
-
+  
     const savePromise = new Promise<ApiSuccess<EntryData>>(async (resolve, reject) => {
       try {
         let savePath = path;
@@ -370,6 +398,7 @@ export function Entry({
           body: JSON.stringify({
             type: path === ".pages.yml" ? "settings" : "content",
             name,
+            publish: isPublish,
             content: schema?.list === true
               ? contentObject.listWrapper
               : contentObject,
@@ -399,7 +428,7 @@ export function Entry({
     });
 
     toast.promise(savePromise, {
-      loading: "Saving your file",
+      loading: isPublish ? "Publishing your file" : "Saving your file",
       success: (response: ApiSuccess<EntryData>) => {
         if (onSave) onSave(response.data);
         return response.message;
@@ -422,9 +451,18 @@ export function Entry({
       setIsSaving(false);
     }
   };
-
+  
   const isBusy = isLoading || isSaving;
 
+  const handlePublish = useCallback(() => {
+    if (isBusy) return;
+    isPublishSubmitRef.current = true;
+    const form = document.getElementById("entry-form");
+    if (form instanceof HTMLFormElement) {
+      form.requestSubmit();
+    }
+  }, [isBusy]);
+  
   useEffect(() => {
     const handleSaveShortcut = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() !== "s") return;
@@ -709,19 +747,23 @@ export function Entry({
               {sha
                 ? (
                   <FileOptions
-                    path={path}
-                    sha={sha}
-                    type={path === ".pages.yml" ? "settings" : (schemaType ?? "content")}
-                    name={name}
-                    canDelete={canDelete}
-                    canRename={canRename}
-                    onDelete={handleDelete}
-                    onRename={handleRename}
-                  >
-                    <Button variant="outline" size="icon" disabled={isBusy}>
-                      <EllipsisVertical />
-                    </Button>
-                  </FileOptions>
+                  path={path}
+                  sha={sha}
+                  type={path === ".pages.yml" ? "settings" : (schemaType ?? "content")}
+                  name={name}
+                  canDelete={canDelete}
+                  canRename={canRename}
+                  canPublish={canPublish}
+                  publishLabel={publishLabel}
+                  isPublishing={isSaving}
+                  onPublish={handlePublish}
+                  onDelete={handleDelete}
+                  onRename={handleRename}
+                >
+                  <Button variant="outline" size="icon" disabled={isBusy}>
+                    <EllipsisVertical />
+                  </Button>
+                </FileOptions>
                 )
                 : <Button variant="outline" size="icon" disabled><EllipsisVertical /></Button>
               }
@@ -730,7 +772,7 @@ export function Entry({
         </div>
       )}
     </div>
-  ), [breadcrumbNode, canDelete, canRename, filenameChanged, filenameFieldMode, filenameValue, handleDelete, handleRename, hasRegisteredChanges, headerActionsNode, headerMeta, historyData, isBusy, isFilenameUnlocked, isFormDirty, isLoading, name, path, schemaType, sha, showFilenameField, showHeaderActions]);
+  ), [breadcrumbNode, canDelete, canPublish, canRename, filenameChanged, filenameFieldMode, filenameValue, handleDelete, handlePublish, handleRename, hasRegisteredChanges, headerActionsNode, headerMeta, historyData, isBusy, isFilenameUnlocked, isFormDirty, isLoading, name, path, publishLabel, isSaving, schemaType, sha, showFilenameField, showHeaderActions]);
 
   useRepoHeader({ header: headerNode });
 
@@ -844,6 +886,9 @@ export function Entry({
         fields={entryFields}
         contentObject={entryContentObject}
         onSubmit={onSubmit}
+        onValidationError={() => {
+          isPublishSubmitRef.current = false;
+        }}
         filePath={
           showFilenameField
             ? <InputGroup data-disabled={path ? !isFilenameUnlocked : false}>

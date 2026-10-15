@@ -199,6 +199,10 @@ const normalizeConfig = (configObject: any) => {
     configObjectCopy.settings &&
     typeof configObjectCopy.settings === "object"
   ) {
+     if (configObjectCopy.settings.publish === true) {
+      configObjectCopy.settings.publish = { enabled: true };
+    }
+    
     if (
       typeof configObjectCopy.settings.hide === "boolean" &&
       configObjectCopy.settings.config == null

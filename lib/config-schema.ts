@@ -119,6 +119,11 @@ const CommitTemplatesSchema = z
         message: "'rename' must be a string.",
       })
       .optional(),
+    publish: z
+      .string({
+        message: "'publish' must be a string.",
+      })
+      .optional(),
   })
   .strict();
 
@@ -318,6 +323,11 @@ const ContentOperationsSchema = z
     delete: z
       .boolean({
         message: "'operations.delete' must be a boolean.",
+      })
+      .optional(),
+    publish: z
+      .boolean({
+        message: "'operations.publish' must be a boolean.",
       })
       .optional(),
   })
@@ -823,6 +833,22 @@ const ConfigSchema = z
                     message: "'content' must be an object.",
                   },
                 )
+                .optional(),
+              publish: z
+                .union([
+                  z.boolean({
+                    message: "'publish' must be a boolean or an object.",
+                  }),
+                  z
+                    .object({
+                      enabled: z.boolean().optional(),
+                      label: z.string().optional(),
+                      skipCiOnSave: z.boolean().optional(),
+                      roles: z.array(z.string()).optional(),
+                      users: z.array(z.string()).optional(),
+                    })
+                    .strict(),
+                ])
                 .optional(),
               commit: z
                 .object(

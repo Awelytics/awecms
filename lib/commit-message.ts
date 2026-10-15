@@ -1,6 +1,6 @@
 import { getFileName, normalizePath } from "@/lib/utils/file";
 
-type CommitAction = "create" | "update" | "delete" | "rename";
+type CommitAction = "create" | "update" | "delete" | "rename" | "publish";
 type CommitTemplates = Partial<Record<CommitAction, string>>;
 type CommitIdentity = "app" | "user";
 
@@ -9,6 +9,7 @@ const defaultCommitTemplates: Record<CommitAction, string> = {
   update: "Update {path} (via Awelytics CMS)",
   delete: "Delete {path} (via Awelytics CMS)",
   rename: "Rename {oldPath} to {newPath} (via Awelytics CMS)",
+  publish: "Publish {path} (via Awelytics CMS)",
 };
 
 const getCommitTemplates = (configObject?: Record<string, any>): CommitTemplates => {
@@ -91,11 +92,13 @@ const resolveCommitMessage = ({
   templatesOverride,
   action,
   tokens,
+  skipCi = false,
 }: {
   configObject?: Record<string, any>;
   templatesOverride?: CommitTemplates;
   action: CommitAction;
   tokens: Record<string, string | undefined>;
+  skipCi?: boolean;
 }): string => {
   const globalTemplates = getCommitTemplates(configObject);
   const overrideTemplate = templatesOverride?.[action];
@@ -104,7 +107,16 @@ const resolveCommitMessage = ({
     : (typeof globalTemplates[action] === "string" && globalTemplates[action]?.trim()
       ? (globalTemplates[action] as string)
       : defaultCommitTemplates[action]);
-  return renderCommitTemplate(template, tokens).replace(/\s+/g, " ").trim().slice(0, 200);
+
+  let rendered = renderCommitTemplate(template, tokens).replace(/\s+/g, " ").trim();
+
+  if (skipCi && !rendered.includes("[skip ci]") && !rendered.includes("[ci skip]")) {
+    rendered = `${rendered.slice(0, 189)} [skip ci]`;
+  } else {
+    rendered = rendered.slice(0, 200);
+  }
+
+  return rendered;
 };
 
 export { buildCommitTokens, resolveCommitIdentity, resolveCommitMessage };

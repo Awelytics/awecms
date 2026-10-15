@@ -34,9 +34,13 @@ export function FileOptions({
   name,
   canDelete,
   canRename,
+  canPublish,
+  publishLabel,
+  isPublishing,
   portalProps,
   onDelete,
   onRename,
+  onPublish,
   children
 }: {
   path: string;
@@ -45,9 +49,13 @@ export function FileOptions({
   name?: string;
   canDelete?: boolean;
   canRename?: boolean;
+  canPublish?: boolean;
+  publishLabel?: string;
+  isPublishing?: boolean;
   portalProps?: any;
   onDelete?: (path: string) => void;
   onRename?: (path: string, newPath: string) => void;
+  onPublish?: () => void;
   children: React.ReactNode;
 }) {
   const { config } = useConfig();
@@ -121,6 +129,14 @@ export function FileOptions({
                 <ArrowUpRight className="size-3 text-muted-foreground ml-auto" />
               </a>
             </DropdownMenuItem>
+            {canPublish && (
+              <DropdownMenuItem
+                disabled={isPublishing}
+                onSelect={() => onPublish?.()}
+              >
+                {publishLabel || "Publish to site"}
+              </DropdownMenuItem>
+            )}
             {(showRename || showDelete)
               ? <>
                   <DropdownMenuSeparator />

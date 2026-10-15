@@ -1034,6 +1034,7 @@ const EntryForm = ({
   filePath,
   onDirtyChange,
   onChangeRegistered,
+  onValidationError,
 }: {
   fields: Field[];
   contentObject?: Record<string, unknown>;
@@ -1041,6 +1042,7 @@ const EntryForm = ({
   filePath?: React.ReactNode;
   onDirtyChange?: (isDirty: boolean) => void;
   onChangeRegistered?: () => void;
+  onValidationError?: () => void;
 }) => {
   const zodSchema = useMemo(() => {
     return generateZodSchema(fields);
@@ -1146,6 +1148,7 @@ const EntryForm = ({
   );
 
   const handleError = () => {
+    onValidationError?.();
     toast.error("Please fix the errors before saving.", { duration: 5000 });
   };
 
