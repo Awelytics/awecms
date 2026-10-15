@@ -151,16 +151,27 @@ export function Entry({
   );
   const isPublishAllowedForSchema = operations.publish !== false;
   const canPublish = useMemo(() => {
-    if (!isPublishConfigured || !isPublishAllowedForSchema || path === ".pages.yml") {
-      return false;
-    }
-    return isUserAllowedToPublish({
+    const isAllowed = isUserAllowedToPublish({
       user,
       owner: config.owner,
       publishConfig: typeof publishSettings === "object" ? publishSettings : undefined,
     });
-  }, [config.owner, isPublishAllowedForSchema, isPublishConfigured, path, publishSettings, user]);
 
+    console.error("DIAGNOSTIC PUBLISH:", {
+      isPublishConfigured,
+      isPublishAllowedForSchema,
+      isUserAllowed: isAllowed,
+      currentUser: user,
+      userEmail: user?.email,
+      publishSettings,
+    });
+
+    if (!isPublishConfigured || !isPublishAllowedForSchema || path === ".pages.yml") {
+      return false;
+    }
+    return isAllowed;
+  }, [config.owner, isPublishAllowedForSchema, isPublishConfigured, path, publishSettings, user]);
+  
   const publishLabel = typeof publishSettings === "object" && publishSettings?.label
     ? publishSettings.label
     : "Publish to site";
@@ -420,7 +431,7 @@ export function Entry({
         if (isPublish) {
           void mutate(`/api/${config.owner}/${config.repo}/${encodeURIComponent(config.branch)}/status`);
         }
-        
+
         if (!path && schemaType === "collection") router.push(`/${config.owner}/${config.repo}/${encodeURIComponent(config.branch)}/collection/${encodeURIComponent(name)}/edit/${encodeURIComponent(data.data.path)}`);
         if (schemaType === "collection") {
           const collectionKeyPrefix = `/api/${config.owner}/${config.repo}/${encodeURIComponent(config.branch)}/collections/${encodeURIComponent(name)}?`;
