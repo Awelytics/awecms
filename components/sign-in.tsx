@@ -230,6 +230,7 @@ export function SignIn() {
                   <Loader className="size-4 animate-spin" />
                 )}
               </Button>
+              <p className="mt-2 text-center text-xs text-muted-foreground">Only for invited collaborators.</p>
             </form>
             {legalCopy}
           </div>
