@@ -767,8 +767,11 @@ const ContentObjectSchema: z.ZodType<any> = z.lazy(() =>
 );
 
 // Main schema with media and content
+// Main schema with media and content
 const ConfigSchema = z
   .object({
+    site: z.string().optional(),
+    url: z.string().optional(),
     cache: z
       .boolean({
         message: "'cache' must be a boolean.",
@@ -805,6 +808,8 @@ const ConfigSchema = z
         z
           .object(
             {
+              site: z.string().optional(),
+              url: z.string().optional(),
               config: z
                 .boolean({
                   message: "'config' must be a boolean.",
