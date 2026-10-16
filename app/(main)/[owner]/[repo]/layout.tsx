@@ -54,23 +54,26 @@ export default async function Layout({
       );
     }
 
-    // Determine the current user's role for this repository
-    const isSuperAdmin = hasAdminAccess(user);
-    const isRepoOwner = Boolean(
-      user.githubUsername && user.githubUsername.toLowerCase() === owner.toLowerCase()
-    );
-
+    // Determine the current user's role for this repository safely
     let currentUserRole: "admin" | "editor" = "editor";
-    if (isSuperAdmin || isRepoOwner) {
-      currentUserRole = "admin";
-    } else {
-      const dbRole = await getCollaboratorRoleForRepo(user, owner, repo);
-      if (dbRole) {
-        currentUserRole = dbRole;
-      } else if (user.githubUsername) {
-        // Authenticated GitHub user with repository access
+    try {
+      const isSuperAdmin = hasAdminAccess(user);
+      const isRepoOwner = Boolean(
+        user.githubUsername && user.githubUsername.toLowerCase() === owner.toLowerCase()
+      );
+
+      if (isSuperAdmin || isRepoOwner) {
         currentUserRole = "admin";
+      } else {
+        const dbRole = await getCollaboratorRoleForRepo(user, owner, repo);
+        if (dbRole) {
+          currentUserRole = dbRole;
+        } else if (user.githubUsername) {
+          currentUserRole = "admin";
+        }
       }
+    } catch (roleError) {
+      console.warn("[repo-layout] Failed to determine collaborator role, falling back to editor:", roleError);
     }
 
     return (
@@ -79,43 +82,58 @@ export default async function Layout({
       </RepoProvider>
     );
   } catch (error: any) {
+    console.error("[repo-layout error]", error);
+
     if (isGithubAuthError(error)) {
       await invalidateSessionForGithubAuthError(session);
       return <GithubAuthExpired />;
     }
 
-    switch (error.status) {
-      case 404:
-        // TODO: adjust as it may be the permissions as insufficient (suggest installing the app)
-        return(
-          <Empty className="absolute inset-0 border-0 rounded-none">
-            <EmptyHeader>
-              <EmptyTitle>Repository not found</EmptyTitle>
-              <EmptyDescription>It may have been removed, renamed, or the URL may be incorrect.</EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Link className={buttonVariants({ variant: "default" })} href="/">
-                Choose another repository
-              </Link>
-            </EmptyContent>
-          </Empty>
-        ); 
-      case 403:
-        return(
-          <Empty className="absolute inset-0 border-0 rounded-none">
-            <EmptyHeader>
-              <EmptyTitle>Access denied</EmptyTitle>
-              <EmptyDescription>You do not have permission to access this repository.</EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Link className={buttonVariants({ variant: "default" })} href="/">
-                Choose another repository
-              </Link>
-            </EmptyContent>
-          </Empty>
-        ); 
-      default:
-        throw error;
+    const statusCode = error?.status || error?.statusCode;
+    if (statusCode === 404) {
+      return (
+        <Empty className="absolute inset-0 border-0 rounded-none">
+          <EmptyHeader>
+            <EmptyTitle>Repository not found</EmptyTitle>
+            <EmptyDescription>It may have been removed, renamed, or the URL may be incorrect.</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Link className={buttonVariants({ variant: "default" })} href="/">
+              Choose another repository
+            </Link>
+          </EmptyContent>
+        </Empty>
+      );
     }
+
+    if (statusCode === 403) {
+      return (
+        <Empty className="absolute inset-0 border-0 rounded-none">
+          <EmptyHeader>
+            <EmptyTitle>Access denied</EmptyTitle>
+            <EmptyDescription>You do not have permission to access this repository.</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Link className={buttonVariants({ variant: "default" })} href="/">
+              Choose another repository
+            </Link>
+          </EmptyContent>
+        </Empty>
+      );
+    }
+
+    return (
+      <Empty className="absolute inset-0 border-0 rounded-none">
+        <EmptyHeader>
+          <EmptyTitle>Failed to load repository</EmptyTitle>
+          <EmptyDescription>{error?.message || "An unexpected error occurred while loading this repository."}</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Link className={buttonVariants({ variant: "default" })} href="/">
+            Back to projects
+          </Link>
+        </EmptyContent>
+      </Empty>
+    );
   }
 }
