@@ -60,10 +60,40 @@ const getToken = cache(async (
 });
 
 // Get the GitHub App installation token for a specific repository.
+const formatPrivateKey = (key: string | undefined): string => {
+  if (!key) return "";
+  let cleanKey = key.trim();
+
+  // Strip wrapping quotes if added in Vercel
+  if (
+    (cleanKey.startsWith('"') && cleanKey.endsWith('"')) ||
+    (cleanKey.startsWith("'") && cleanKey.endsWith("'"))
+  ) {
+    cleanKey = cleanKey.slice(1, -1);
+  }
+
+  // Support base64 encoded private keys
+  if (!cleanKey.includes("-----BEGIN") && cleanKey.length > 50) {
+    try {
+      const decoded = Buffer.from(cleanKey, "base64").toString("utf-8");
+      if (decoded.includes("-----BEGIN")) {
+        cleanKey = decoded;
+      }
+    } catch {}
+  }
+
+  // Replace literal '\n' strings with real line breaks and remove carriage returns
+  return cleanKey.replace(/\\n/g, "\n").replace(/\r/g, "");
+};
+
+// Get the GitHub App installation token for a specific repository.
 const getInstallationToken = cache(async (owner: string, repo: string) => {
+  const rawKey = process.env.GITHUB_APP_PRIVATE_KEY;
+  const privateKey = formatPrivateKey(rawKey);
+
   const app = new App({
     appId: process.env.GITHUB_APP_ID!,
-    privateKey: process.env.GITHUB_APP_PRIVATE_KEY!,
+    privateKey: privateKey,
   });
 
   const repoInstallation = await app.octokit.request(
