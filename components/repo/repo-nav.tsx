@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useConfig } from "@/contexts/config-context";
+import { useRepo } from "@/contexts/repo-context";
 import { useUser } from "@/contexts/user-context";
 import { hasGithubIdentity } from "@/lib/authz-shared";
 import { isConfigEnabled } from "@/lib/config";
@@ -43,6 +44,7 @@ const RepoNav = ({
 }) => {
   const { config } = useConfig();
   const { user } = useUser();
+  const { currentUserRole, hasGithubWriteAccess } = useRepo();
   const pathname = usePathname();
 
   const items = useMemo(() => {
@@ -65,9 +67,10 @@ const RepoNav = ({
       label: item.label || item.name || "Media"
     })) || [];
 
-    const canManageRepo = hasGithubIdentity(user);
+    const isGithubAdmin = Boolean(hasGithubWriteAccess);
+    const isAdmin = currentUserRole === "admin" || isGithubAdmin;
 
-    const settingsItem = canManageRepo && isConfigEnabled(configObject)
+    const settingsItem = isAdmin && isConfigEnabled(configObject)
       ? {
         key: "configuration",
         icon: <Settings className="h-5 w-5 mr-2" />,
@@ -76,7 +79,7 @@ const RepoNav = ({
       }
       : null;
 
-    const collaboratorsItem = configObject && Object.keys(configObject).length !== 0 && canManageRepo
+    const collaboratorsItem = configObject && Object.keys(configObject).length !== 0 && isAdmin
       ? {
         key: "collaborators",
         icon: <Users className="h-5 w-5 mr-2" />,
@@ -91,7 +94,7 @@ const RepoNav = ({
       settingsItem,
       collaboratorsItem
     ].filter(Boolean);
-  }, [config, user]);
+  }, [config, currentUserRole, hasGithubWriteAccess]);
 
   if (!items.length) return null;
 

@@ -318,15 +318,18 @@ export function RepoSidebar() {
     }));
   }, [config]);
 
+  const { currentUserRole, hasGithubWriteAccess } = useRepo();
+
   const adminItems = useMemo<NavItem[]>(() => {
     if (!config) return [];
-    const canManageRepo = hasGithubIdentity(user);
+    const isGithubAdmin = Boolean(hasGithubWriteAccess);
+    const isAdmin = currentUserRole === "admin" || isGithubAdmin;
 
     const items: NavItem[] = [];
-
     const configObject = (config.object as any) ?? {};
 
-    if (canManageRepo && isCacheEnabled(configObject)) {
+    // Cache and Actions are only visible to GitHub repo admins with write access
+    if (isGithubAdmin && isCacheEnabled(configObject)) {
       items.push({
         key: "admin-cache",
         label: "Cache",
@@ -335,14 +338,17 @@ export function RepoSidebar() {
       });
     }
 
-    if (canManageRepo) {
+    if (isGithubAdmin) {
       items.push({
         key: "admin-actions",
         label: "Actions",
         href: `/${config.owner}/${config.repo}/${encodeURIComponent(config.branch)}/actions`,
         icon: <ListVideo className="size-4" />,
       });
+    }
 
+    // Collaborators management: visible to site Admin and GitHub admin, hidden for Editor
+    if (isAdmin) {
       items.push({
         key: "admin-collaborators",
         label: "Collaborators",
@@ -351,7 +357,8 @@ export function RepoSidebar() {
       });
     }
 
-    if (canManageRepo && isConfigEnabled(configObject)) {
+    // Site Configuration (.pages.yml): visible to site Admin and GitHub admin, hidden for Editor
+    if (isAdmin && isConfigEnabled(configObject)) {
       items.push({
         key: "admin-configuration",
         label: "Configuration",
@@ -361,7 +368,7 @@ export function RepoSidebar() {
     }
 
     return items;
-  }, [config, user]);
+  }, [config, currentUserRole, hasGithubWriteAccess]);
   const rootActions = useMemo(
     () => getRootActions(config?.object),
     [config?.object],

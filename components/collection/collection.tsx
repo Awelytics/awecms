@@ -12,6 +12,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useConfig } from "@/contexts/config-context";
+import { useRepo } from "@/contexts/repo-context";
 import { RepoActionButtons } from "@/components/repo/repo-action-buttons";
 import {
   getParentPath,
@@ -181,6 +182,7 @@ export function Collection({ name, path }: { name: string; path?: string }) {
   const router = useRouter();
 
   const { config } = useConfig();
+  const { currentUserRole } = useRepo();
   if (!config) throw new Error(`Configuration not found.`);
 
   const schema = useMemo(
@@ -193,7 +195,8 @@ export function Collection({ name, path }: { name: string; path?: string }) {
   const operations = useMemo(() => resolveContentOperations({ schema }), [schema]);
   const canCreate = operations.create;
   const canRename = operations.rename;
-  const canDelete = operations.delete;
+  // Editors cannot delete entries from collections
+  const canDelete = currentUserRole === "editor" ? false : operations.delete;
 
   const viewFields = useMemo(() => {
     let pathAndFieldArray: any[] = [];

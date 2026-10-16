@@ -143,7 +143,8 @@ export function Entry({
   );
   const canCreate = operations.create;
   const canRename = operations.rename;
-  const canDelete = operations.delete;
+  // Editors are protected from accidental data loss: canDelete is false for editors
+  const canDelete = currentUserRole === "editor" ? false : operations.delete;
 
   const publishSettings = config.object?.settings?.publish;
   const isPublishExplicitlyDisabled =
@@ -156,12 +157,9 @@ export function Entry({
       return false;
     }
 
-    // Role-based check: site admin and platform superadmins can publish without touching .pages.yml
-    if (currentUserRole === "admin") {
+    // Both site admin and editor can publish to site
+    if (currentUserRole === "admin" || currentUserRole === "editor") {
       return true;
-    }
-    if (currentUserRole === "editor") {
-      return false;
     }
 
     return isUserAllowedToPublish({

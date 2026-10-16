@@ -7,4 +7,5 @@ export interface Repo {
   defaultBranch?: string;
   isPrivate: boolean;
   currentUserRole?: "admin" | "editor";
+  hasGithubWriteAccess?: boolean;
 };

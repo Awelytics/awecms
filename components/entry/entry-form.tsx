@@ -25,6 +25,7 @@ import {
   sanitizeObject,
 } from "@/lib/schema";
 import { Field } from "@/types/field";
+import { useRepo } from "@/contexts/repo-context";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -1066,6 +1067,7 @@ const EntryForm = ({
     onDirtyChange?.(form.formState.isDirty);
   }, [form.formState.isDirty, onDirtyChange]);
 
+  const { hasGithubWriteAccess } = useRepo();
   const beforeSubmitHooksRef = useRef<Map<string, BeforeSubmitHook>>(new Map());
 
   const registerBeforeSubmitHook = useCallback(
@@ -1089,6 +1091,18 @@ const EntryForm = ({
     ): React.ReactNode[] => {
       return fields.map((field) => {
         if (!field || field.hidden) return null;
+
+        // Hide branch sync/merge to production fields for users without GitHub write access
+        const fieldNameLower = (field.name || "").toLowerCase();
+        if (
+          !hasGithubWriteAccess &&
+          (fieldNameLower === "sync_to_production" ||
+            fieldNameLower === "synctoproduction" ||
+            fieldNameLower.includes("sync_to_prod"))
+        ) {
+          return null;
+        }
+
         const effectiveField =
           inheritedReadonly && !field.readonly
             ? { ...field, readonly: true, __inheritedReadonly: true }
@@ -1129,7 +1143,7 @@ const EntryForm = ({
         );
       });
     },
-    [onChangeRegistered],
+    [hasGithubWriteAccess, onChangeRegistered],
   );
 
   const runBeforeValidationHooks = useCallback(async () => {

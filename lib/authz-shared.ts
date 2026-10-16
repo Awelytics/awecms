@@ -57,9 +57,8 @@ export const isUserAllowedToPublish = ({
   if (!user) return false;
   if (publishConfig && publishConfig.enabled === false) return false;
 
-  // 1. Direct role check: admin role always grants publish, editor role denies it
-  if (role === "admin") return true;
-  if (role === "editor") return false;
+  // 1. Direct role check: both admin and editor roles grant publish
+  if (role === "admin" || role === "editor") return true;
 
   const userEmail = user.email?.trim().toLowerCase();
   const userName = user.name?.trim().toLowerCase();

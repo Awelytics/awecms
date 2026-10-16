@@ -5,6 +5,8 @@ import { ConfigProvider } from "@/contexts/config-context";
 import { RepoLayout } from "@/components/repo/repo-layout";
 import { getServerSession } from "@/lib/session-server";
 import { getToken } from "@/lib/token";
+import { requireGithubRepoWriteAccess } from "@/lib/authz-server";
+import { getRepoSnapshot } from "@/lib/github-cache-file";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
@@ -27,8 +29,48 @@ export default async function Layout({
       : "/sign-in";
   if (!user) return redirect(signInUrl);
 
-  const decodedBranch = decodeURIComponent(branch);
+const decodedBranch = decodeURIComponent(branch);
+  const isProtectedBranch =
+    decodedBranch.toLowerCase() === "main" || decodedBranch.toLowerCase() === "master";
 
+  if (isProtectedBranch) {
+    let hasWriteAccess = false;
+    if (user.githubUsername) {
+      try {
+        await requireGithubRepoWriteAccess(user, owner, repo);
+        hasWriteAccess = true;
+      } catch {
+        hasWriteAccess = false;
+      }
+    }
+
+    if (!hasWriteAccess) {
+      // Find fallback branch (prefer draft -> staging -> first non-protected branch)
+      let targetBranch = "draft";
+      try {
+        const { token: fallbackToken } = await getToken(user, owner, repo);
+        if (fallbackToken) {
+          const snapshot = await getRepoSnapshot(owner, repo, fallbackToken);
+          const nonProtected = (snapshot.branches ?? []).filter((b) => {
+            const lower = b.toLowerCase();
+            return lower !== "main" && lower !== "master";
+          });
+          if (nonProtected.includes("draft")) {
+            targetBranch = "draft";
+          } else if (nonProtected.includes("staging")) {
+            targetBranch = "staging";
+          } else if (nonProtected.length > 0) {
+            targetBranch = nonProtected[0];
+          }
+        }
+      } catch (err) {
+        console.warn("[branch-layout] Failed to resolve fallback branch:", err);
+      }
+
+      return redirect(`/${owner}/${repo}/${encodeURIComponent(targetBranch)}`);
+    }
+  }
+  
   let config = {
     owner: owner.toLowerCase(),
     repo: repo.toLowerCase(),

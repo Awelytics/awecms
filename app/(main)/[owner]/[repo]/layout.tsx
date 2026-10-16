@@ -6,6 +6,7 @@ import { getServerSession } from "@/lib/session-server";
 import { getRepoSnapshot } from "@/lib/github-cache-file";
 import { hasAdminAccess } from "@/lib/admin";
 import { getCollaboratorRoleForRepo } from "@/lib/collaborator-access";
+import { requireGithubRepoWriteAccess } from "@/lib/authz-server";
 import { GithubAuthExpired } from "@/components/github-auth-expired";
 import { isGithubAuthError } from "@/lib/github-auth";
 import { invalidateSessionForGithubAuthError } from "@/lib/github-auth-server";
@@ -54,6 +55,17 @@ export default async function Layout({
       );
     }
 
+    // Check whether the user has GitHub repo write/push access
+    let hasGithubWriteAccess = false;
+    if (user.githubUsername) {
+      try {
+        await requireGithubRepoWriteAccess(user, owner, repo);
+        hasGithubWriteAccess = true;
+      } catch {
+        hasGithubWriteAccess = false;
+      }
+    }
+
     // Determine the current user's role for this repository safely
     let currentUserRole: "admin" | "editor" = "editor";
     try {
@@ -68,7 +80,7 @@ export default async function Layout({
         const dbRole = await getCollaboratorRoleForRepo(user, owner, repo);
         if (dbRole) {
           currentUserRole = dbRole;
-        } else if (user.githubUsername) {
+        } else if (user.githubUsername && hasGithubWriteAccess) {
           currentUserRole = "admin";
         }
       }
@@ -76,8 +88,33 @@ export default async function Layout({
       console.warn("[repo-layout] Failed to determine collaborator role, falling back to editor:", roleError);
     }
 
+    // Filter out protected branches (main/master) for users without GitHub write access
+    const isProtectedBranch = (branchName: string) => {
+      const lower = branchName.toLowerCase();
+      return lower === "main" || lower === "master";
+    };
+
+    const allowedBranches = hasGithubWriteAccess
+      ? branchNames
+      : branchNames.filter((branchName) => !isProtectedBranch(branchName));
+
+    let safeDefaultBranch = repoInfo.defaultBranch;
+    if (!hasGithubWriteAccess && safeDefaultBranch && isProtectedBranch(safeDefaultBranch)) {
+      safeDefaultBranch =
+        allowedBranches[0] ||
+        "draft";
+    }
+
     return (
-      <RepoProvider repo={{ ...repoInfo, currentUserRole }}>
+      <RepoProvider
+        repo={{
+          ...repoInfo,
+          branches: allowedBranches,
+          defaultBranch: safeDefaultBranch,
+          currentUserRole,
+          hasGithubWriteAccess,
+        }}
+      >
         {children}
       </RepoProvider>
     );

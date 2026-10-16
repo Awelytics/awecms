@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { useActionToasts } from "@/contexts/action-toast-context";
 import { useUser } from "@/contexts/user-context";
+import { useRepo } from "@/contexts/repo-context";
 import { hasGithubIdentity } from "@/lib/authz-shared";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -139,6 +140,7 @@ export function RepoActionButtons({
   layout = "header",
 }: RepoActionButtonsProps) {
   const { user } = useUser();
+  const { hasGithubWriteAccess } = useRepo();
   const { trackActionRun } = useActionToasts();
   const isGithubUser = hasGithubIdentity(user);
   const [runsByAction, setRunsByAction] = useState<Record<string, ActionRunSummary[]>>({});
@@ -147,10 +149,28 @@ export function RepoActionButtons({
   const [dialogValues, setDialogValues] = useState<Record<string, string | number | boolean>>({});
   const refreshErrorToastIdRef = useRef<string | number | null>(null);
 
-  const actionNames = useMemo(() => actions.map((action) => action.name), [actions]);
+  // Filter out merge/production-sync actions if the user lacks GitHub write access
+  const visibleActions = useMemo(() => {
+    return actions.filter((action) => {
+      const name = (action.name || "").toLowerCase();
+      const label = (action.label || "").toLowerCase();
+      const isMergeAction =
+        name.includes("merge") ||
+        name.includes("sync_to_production") ||
+        label.includes("merge") ||
+        label.includes("sync to prod");
+
+      if (isMergeAction && !hasGithubWriteAccess) {
+        return false;
+      }
+      return true;
+    });
+  }, [actions, hasGithubWriteAccess]);
+
+  const actionNames = useMemo(() => visibleActions.map((action) => action.name), [visibleActions]);
 
   const loadRuns = useCallback(async () => {
-    if (actions.length === 0) return;
+    if (visibleActions.length === 0) return;
 
     const params = new URLSearchParams({
       actionNames: actionNames.join(","),
@@ -166,11 +186,34 @@ export function RepoActionButtons({
     );
     setRunsByAction(payload.data);
     return payload.data;
-  }, [actionNames, actions.length, contextName, contextPath, contextType, owner, refName, repo]);
+  }, [actionNames, visibleActions.length, contextName, contextPath, contextType, owner, refName, repo]);
 
   useEffect(() => {
     void loadRuns();
   }, [loadRuns]);
+
+  useEffect(() => {
+    if (visibleActions.length === 0) return;
+
+    const interval = window.setInterval(async () => {
+      try {
+        const latestRuns = await loadRuns();
+        if (!latestRuns) return;
+        if (refreshErrorToastIdRef.current != null) {
+          toast.dismiss(refreshErrorToastIdRef.current);
+          refreshErrorToastIdRef.current = null;
+        }
+
+      } catch (error) {
+        console.error(error);
+        if (refreshErrorToastIdRef.current == null) {
+          refreshErrorToastIdRef.current = toast.error("Couldn’t refresh action status. Retrying…");
+        }
+      }
+    }, 4000);
+
+    return () => window.clearInterval(interval);
+  }, [visibleActions, loadRuns]);
 
   useEffect(() => {
     if (actions.length === 0) return;
@@ -440,12 +483,12 @@ export function RepoActionButtons({
     </Dialog>
   );
 
-  if (actions.length === 0) return null;
+  if (visibleActions.length === 0) return null;
 
   if (layout === "sidebar") {
     return (
       <SidebarMenu>
-        {actions.map((action) => {
+        {visibleActions.map((action) => {
           const runs = runsByAction[action.name] || [];
           const isBusy = dispatching[action.name];
 
@@ -471,7 +514,7 @@ export function RepoActionButtons({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {actions.map((action) => {
+      {visibleActions.map((action) => {
         const runs = runsByAction[action.name] || [];
         const isBusy = dispatching[action.name];
 
