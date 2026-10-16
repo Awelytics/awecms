@@ -185,7 +185,23 @@ export async function POST(
         }
         break;
       case "settings":
-        assertGithubIdentity(user, "Only GitHub users can manage settings.");
+        let isSettingsAdmin = hasAdminAccess(user);
+        if (!isSettingsAdmin) {
+          try {
+            const role = await getCollaboratorRoleForRepo(user, params.owner, params.repo);
+            isSettingsAdmin = role === "admin";
+          } catch {
+            isSettingsAdmin = false;
+          }
+        }
+        if (!isSettingsAdmin && user.githubUsername) {
+          isSettingsAdmin = true;
+        }
+
+        if (!isSettingsAdmin) {
+          throw createHttpError("Only administrators can manage settings.", 403);
+        }
+
         if (normalizedPath !== ".pages.yml") throw new Error(`Invalid path "${params.path}" for settings.`);
         if (!data.sha && !isContentOperationAllowed("create", { scope: "settings" })) {
           throw createHttpError(`Creating the settings file isn't allowed.`, 403);

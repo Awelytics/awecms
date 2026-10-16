@@ -7,8 +7,8 @@ import {
   formatRepoBranchTitle,
 } from "@/components/document-title";
 import { useConfig } from "@/contexts/config-context";
+import { useRepo } from "@/contexts/repo-context";
 import { useUser } from "@/contexts/user-context";
-import { hasGithubIdentity } from "@/lib/authz-shared";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -26,18 +26,21 @@ import { BookText } from "lucide-react";
 export default function Page() {
   const { config, setConfig } = useConfig();
   const { user } = useUser();
+  const { currentUserRole, hasGithubWriteAccess } = useRepo();
 
   const handleSave = async (data: Record<string, any>) => {
     setConfig(data.config);
   };
 
-  if (!hasGithubIdentity(user)) {
+  const isAdmin = currentUserRole === "admin" || Boolean(hasGithubWriteAccess);
+
+  if (!isAdmin) {
     return (
       <Empty className="absolute inset-0 border-0 rounded-none">
         <EmptyHeader>
           <EmptyTitle>Access denied</EmptyTitle>
           <EmptyDescription>
-            Only GitHub users can manage repository configuration.
+            Only administrators can manage repository configuration.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>

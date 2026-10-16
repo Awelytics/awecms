@@ -125,7 +125,7 @@ function InviteCollaboratorsDialog({
           {triggerLabel || "Invite"}
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>Invite collaborators</DialogTitle>
           <DialogDescription>
@@ -146,7 +146,8 @@ function InviteCollaboratorsDialog({
               value={value}
               onChange={(event) => onValueChange(event.target.value)}
               required
-              rows={4}
+              rows={3}
+              className="resize-none"
             />
           </div>
 
@@ -156,7 +157,11 @@ function InviteCollaboratorsDialog({
               value={selectedRole}
               onValueChange={(val) => setSelectedRole(val as "admin" | "editor")}
             >
-              <SelectTrigger id="role-select" className="w-full h-auto py-2.5 px-3.5 items-center">
+              <SelectTrigger
+                id="role-select"
+                className="w-full !h-auto py-2.5 px-3.5 items-center data-[size=default]:!h-auto"
+                style={{ height: "auto" }}
+              >
                 <SelectValue placeholder="Select a role" />
               </SelectTrigger>
               <SelectContent>
@@ -166,7 +171,7 @@ function InviteCollaboratorsDialog({
                     <div className="flex flex-col text-left">
                       <span className="font-medium text-sm leading-tight">Editor</span>
                       <span className="text-xs text-muted-foreground leading-normal mt-0.5">
-                        Drafts only (Save with [skip ci]), cannot publish to live site
+                        Can edit and publish content, cannot delete files or manage collaborators
                       </span>
                     </div>
                   </div>
@@ -177,7 +182,7 @@ function InviteCollaboratorsDialog({
                     <div className="flex flex-col text-left">
                       <span className="font-medium text-sm leading-tight">Admin</span>
                       <span className="text-xs text-muted-foreground leading-normal mt-0.5">
-                        Full access: edit content and publish to production
+                        Full access: edit and delete content, publish, and manage collaborators
                       </span>
                     </div>
                   </div>

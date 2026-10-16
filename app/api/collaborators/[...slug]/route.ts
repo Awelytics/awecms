@@ -1,8 +1,10 @@
 import { type NextRequest } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { collaboratorTable } from "@/db/schema";
 import { requireGithubRepoWriteAccess } from "@/lib/authz-server";
+import { getCollaboratorRoleForRepo } from "@/lib/collaborator-access";
+import { hasAdminAccess } from "@/lib/admin";
 import { createHttpError, toErrorResponse } from "@/lib/api-error";
 import { requireApiUserSession } from "@/lib/session-server";
 
@@ -29,19 +31,39 @@ export async function GET(
     }
 
     const owner = params.slug[0];
-		const repo = params.slug[1];
+    const repo = params.slug[1];
+    const user = sessionResult.user;
 
-    const { repoAccess } = await requireGithubRepoWriteAccess(
-      sessionResult.user,
-      owner,
-      repo,
-      "Only GitHub users can manage collaborators.",
-    );
-    
+    // Verify whether user is site admin, platform admin, or GitHub write user
+    let isAuthorizedAdmin = hasAdminAccess(user);
+    if (!isAuthorizedAdmin) {
+      try {
+        const role = await getCollaboratorRoleForRepo(user, owner, repo);
+        if (role === "admin") {
+          isAuthorizedAdmin = true;
+        }
+      } catch (err) {
+        console.warn("[api/collaborators] Error checking collaborator role:", err);
+      }
+    }
+
+    if (!isAuthorizedAdmin && user.githubUsername) {
+      try {
+        await requireGithubRepoWriteAccess(user, owner, repo);
+        isAuthorizedAdmin = true;
+      } catch {
+        isAuthorizedAdmin = false;
+      }
+    }
+
+    if (!isAuthorizedAdmin) {
+      throw createHttpError("Only administrators can manage collaborators.", 403);
+    }
+
     const collaborators = await db.query.collaboratorTable.findMany({
       where: and(
-        eq(collaboratorTable.ownerId, repoAccess.ownerId),
-        eq(collaboratorTable.repoId, repoAccess.repoId)
+        sql`lower(${collaboratorTable.owner}) = lower(${owner})`,
+        sql`lower(${collaboratorTable.repo}) = lower(${repo})`
       )
     });
     

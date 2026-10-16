@@ -4,6 +4,10 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { getInstallationRepos, getInstallations } from "@/lib/github-app";
 import { requireGithubRepoWriteAccess } from "@/lib/authz-server";
+import { getCollaboratorRoleForRepo, findVerifiedUserByEmail, normalizeEmail } from "@/lib/collaborator-access";
+import { hasAdminAccess } from "@/lib/admin";
+import { getToken } from "@/lib/token";
+import { createOctokitInstance } from "@/lib/utils/octokit";
 import { InviteEmailTemplate } from "@/components/email/invite";
 import { CollaboratorAddedEmailTemplate } from "@/components/email/collaborator-added";
 import { render } from "@react-email/render";
@@ -14,7 +18,6 @@ import { and, eq, sql } from "drizzle-orm";
 import { collaboratorInviteTable, collaboratorTable } from "@/db/schema";
 import { z } from "zod";
 import { randomBytes } from "crypto";
-import { findVerifiedUserByEmail, normalizeEmail } from "@/lib/collaborator-access";
 
 const parseInviteEmails = (raw: FormDataEntryValue | null) => {
   const value = typeof raw === "string" ? raw : "";
@@ -53,6 +56,88 @@ const assertRepoInInstallation = async (
   return {
     repoAccess,
     installation: installations[0],
+  };
+};
+
+// Allows both GitHub write-users and verified Site Admins (Email/OTP) to manage collaborators
+const resolveRepoManagementAccess = async (
+  user: { id: string; name?: string | null; email?: string | null; githubUsername?: string | null },
+  owner: string,
+  repo: string,
+): Promise<{
+  repoAccess: {
+    repoId: number;
+    ownerId: number;
+    ownerLogin: string;
+    repoName: string;
+    ownerType: string;
+  };
+  installation: { id: number };
+}> => {
+  if (user.githubUsername) {
+    try {
+      return await assertRepoInInstallation(user, owner, repo);
+    } catch (githubErr) {
+      console.warn("[collaborator-action] GitHub write access check failed, checking site admin role:", githubErr);
+    }
+  }
+
+  const isSuperAdmin = hasAdminAccess(user as any);
+  let isSiteAdmin = isSuperAdmin;
+  if (!isSiteAdmin) {
+    const role = await getCollaboratorRoleForRepo(user as any, owner, repo);
+    isSiteAdmin = role === "admin";
+  }
+
+  if (!isSiteAdmin) {
+    throw new Error("You do not have permission to manage collaborators for this repository.");
+  }
+
+  const existingRecord = await db.query.collaboratorTable.findFirst({
+    where: and(
+      sql`lower(${collaboratorTable.owner}) = lower(${owner})`,
+      sql`lower(${collaboratorTable.repo}) = lower(${repo})`,
+    ),
+  });
+
+  if (existingRecord?.repoId != null && existingRecord?.ownerId != null) {
+    return {
+      repoAccess: {
+        repoId: Number(existingRecord.repoId),
+        ownerId: Number(existingRecord.ownerId),
+        ownerLogin: existingRecord.owner,
+        repoName: existingRecord.repo,
+        ownerType: (existingRecord.type as "user" | "org") || "user",
+      },
+      installation: { id: existingRecord.installationId ?? 0 },
+    };
+  }
+
+  const { token } = await getToken(user as any, owner, repo, true);
+  if (!token) throw new Error("Could not acquire repository token.");
+
+  const octokit = createOctokitInstance(token);
+  const repoData = await octokit.rest.repos.get({ owner, repo });
+
+  let installationId = 0;
+  try {
+    const installations = await getInstallations(token, [owner]);
+    if (installations.length > 0) {
+      installationId = installations[0].id;
+    }
+  } catch {
+    // Ignore error resolving installations
+  }
+
+  return {
+    repoAccess: {
+      repoId: repoData.data.id,
+      ownerId: repoData.data.owner.id,
+      ownerLogin: repoData.data.owner.login,
+      repoName: repoData.data.name,
+      ownerType: repoData.data.owner.type === "User" ? "user" : "org",
+    },
+    installation: { id: installationId },
   };
 };
 
@@ -119,9 +204,8 @@ const handleAddCollaborator = async (prevState: any, formData: FormData) => {
       headers: await headers(),
     });
     const user = session?.user;
-		if (!user) throw new Error("You must be signed in with GitHub to invite collaborators.");
+		if (!user) throw new Error("You must be signed in to invite collaborators.");
 
-		// TODO: add support for branches
 		const ownerAndRepoValidation = z.object({
 			owner: z.string().trim().min(1),
 			repo: z.string().trim().min(1),
@@ -141,8 +225,7 @@ const handleAddCollaborator = async (prevState: any, formData: FormData) => {
     const roleValidation = z.enum(["admin", "editor"]).safeParse(formData.get("role") ?? "editor");
     const role: "admin" | "editor" = roleValidation.success ? roleValidation.data : "editor";
 
-    const { repoAccess, installation } = await assertRepoInInstallation(user, owner, repo);
-
+    const { repoAccess, installation } = await resolveRepoManagementAccess(user, owner, repo);
     const baseUrl = getBaseUrl();
     const repoUrl = new URL(`/${owner}/${repo}`, baseUrl).toString();
     const createdCollaborators: (typeof collaboratorTable.$inferSelect)[] = [];
@@ -198,8 +281,8 @@ const handleAddCollaborator = async (prevState: any, formData: FormData) => {
               repoName: `${formData.get("owner")}/${formData.get("repo")}`,
               email: normalizedEmail,
               invitedByName: user.name || user.githubUsername || user.email,
-              invitedByUrl: `https://github.com/${user.githubUsername}`,
-            }),
+                  invitedByUrl: user.githubUsername ? `https://github.com/${user.githubUsername}` : baseUrl,
+              }),
           );
           await sendEmail({
             to: normalizedEmail,
@@ -219,8 +302,8 @@ const handleAddCollaborator = async (prevState: any, formData: FormData) => {
               repoName: `${formData.get("owner")}/${formData.get("repo")}`,
               repoUrl,
               invitedByName: user.name || user.githubUsername || user.email,
-              invitedByUrl: `https://github.com/${user.githubUsername}`,
-            }),
+                invitedByUrl: user.githubUsername ? `https://github.com/${user.githubUsername}` : baseUrl,
+              }),
           );
           await sendEmail({
             to: normalizedEmail,
@@ -285,12 +368,12 @@ const handleRemoveCollaborator = async (collaboratorId: number, owner: string, r
       headers: await headers(),
     });
     const user = session?.user;
-		if (!user) throw new Error("You must be signed in with GitHub to invite collaborators.");
+		if (!user) throw new Error("You must be signed in to manage collaborators.");
 
 		const collaborator = await db.query.collaboratorTable.findFirst({ where: eq(collaboratorTable.id, collaboratorId) });
 		if (!collaborator) throw new Error("Collaborator not found");
 
-    const { repoAccess } = await assertRepoInInstallation(user, owner, repo);
+    const { repoAccess } = await resolveRepoManagementAccess(user, owner, repo);
 
 		const deletedCollaborator = await db.delete(collaboratorTable).where(
 			and(
@@ -324,8 +407,8 @@ const handleResendCollaboratorInvite = async (collaboratorId: number, owner: str
       headers: await headers(),
     });
     const user = session?.user;
-    if (!user) throw new Error("You must be signed in with GitHub to resend collaborator invites.");
-    await assertRepoInInstallation(user, owner, repo);
+    if (!user) throw new Error("You must be signed in to resend collaborator invites.");
+    await resolveRepoManagementAccess(user, owner, repo);
 
     const collaborator = await db.query.collaboratorTable.findFirst({ where: eq(collaboratorTable.id, collaboratorId) });
     if (!collaborator) throw new Error("Collaborator not found");
@@ -348,7 +431,7 @@ const handleResendCollaboratorInvite = async (collaboratorId: number, owner: str
         repoName: `${owner}/${repo}`,
         email: collaborator.email,
         invitedByName: user.name || user.githubUsername || user.email,
-        invitedByUrl: `https://github.com/${user.githubUsername}`,
+          invitedByUrl: user.githubUsername ? `https://github.com/${user.githubUsername}` : baseUrl,
       }),
     );
 
