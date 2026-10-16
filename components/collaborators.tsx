@@ -35,7 +35,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -68,7 +67,7 @@ import { BookText, EllipsisVertical, Loader, Shield, Pencil } from "lucide-react
 type Collaborator = {
   id: number;
   email: string;
-    role?: "admin" | "editor" | string;
+  role?: "admin" | "editor" | string;
 };
 
 type AddCollaboratorState = {
@@ -87,10 +86,6 @@ function InviteCollaboratorsDialog({
   onOpenChange,
   value,
   onValueChange,
-  disabled,
-  triggerLabel,
-  triggerVariant = "outline",
-  triggerSize = "default",
 }: {
   owner: string;
   repo: string;
@@ -100,10 +95,6 @@ function InviteCollaboratorsDialog({
   onOpenChange: (open: boolean) => void;
   value: string;
   onValueChange: (value: string) => void;
-  disabled: boolean;
-  triggerLabel?: string;
-  triggerVariant?: "default" | "outline";
-  triggerSize?: "default" | "sm";
 }) {
   const [selectedRole, setSelectedRole] = useState<"admin" | "editor">("editor");
 
@@ -120,11 +111,6 @@ function InviteCollaboratorsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button variant={triggerVariant} size={triggerSize} disabled={disabled}>
-          {triggerLabel || "Invite"}
-        </Button>
-      </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Invite collaborators</DialogTitle>
@@ -156,34 +142,29 @@ function InviteCollaboratorsDialog({
               value={selectedRole}
               onValueChange={(val) => setSelectedRole(val as "admin" | "editor")}
             >
-              <SelectTrigger id="role-select" data-size="auto" className="w-full h-auto py-2.5 px-3.5 items-center">
+              <SelectTrigger id="role-select">
                 <SelectValue placeholder="Select a role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="editor" className="py-2.5">
-                  <div className="flex items-center gap-3">
-                    <Pencil className="size-4 shrink-0 text-muted-foreground" />
-                    <div className="flex flex-col text-left">
-                      <span className="font-medium text-sm leading-tight">Editor</span>
-                      <span className="text-xs text-muted-foreground leading-normal mt-0.5">
-                        Can edit and publish content, cannot delete files or manage collaborators
-                      </span>
-                    </div>
+                <SelectItem value="editor">
+                  <div className="flex items-center gap-2">
+                    <Pencil className="size-4 text-muted-foreground" />
+                    <span>Editor</span>
                   </div>
                 </SelectItem>
-                <SelectItem value="admin" className="py-2.5">
-                  <div className="flex items-center gap-3">
-                    <Shield className="size-4 shrink-0 text-primary" />
-                    <div className="flex flex-col text-left">
-                      <span className="font-medium text-sm leading-tight">Admin</span>
-                      <span className="text-xs text-muted-foreground leading-normal mt-0.5">
-                        Full access: edit and delete content, publish, and manage collaborators
-                      </span>
-                    </div>
+                <SelectItem value="admin">
+                  <div className="flex items-center gap-2">
+                    <Shield className="size-4 text-primary" />
+                    <span>Admin</span>
                   </div>
                 </SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              {selectedRole === "admin"
+                ? "Admins can edit, publish, delete content, and manage collaborators."
+                : "Editors can edit and publish content, but cannot delete files."}
+            </p>
           </div>
 
           {state?.error ? (
@@ -263,8 +244,6 @@ export function Collaborators({
           err instanceof Error ? err.message : "Failed to fetch collaborators",
         );
       } finally {
-        // In React Strict Mode, an aborted first pass can race with the active request.
-        // Keep the loading state until the non-aborted request finishes.
         if (!controller.signal.aborted) {
           setIsLoading(false);
         }
@@ -375,33 +354,18 @@ export function Collaborators({
           </Tooltip>
         </div>
         {showInviteAction ? (
-          <InviteCollaboratorsDialog
-            owner={owner}
-            repo={repo}
-            state={addCollaboratorState}
-            action={addCollaboratorAction}
-            open={inviteDialogOpen}
-            onOpenChange={setInviteDialogOpen}
-            value={emails}
-            onValueChange={setEmails}
+          <Button
+            variant="default"
+            size="default"
             disabled={isLoading}
-            triggerVariant="default"
-            triggerSize="default"
-          />
+            onClick={() => setInviteDialogOpen(true)}
+          >
+            Invite
+          </Button>
         ) : null}
       </div>
     );
-  }, [
-    addCollaboratorAction,
-    addCollaboratorState,
-    collaborators.length,
-    emails,
-    error,
-    inviteDialogOpen,
-    isLoading,
-    owner,
-    repo,
-  ]);
+  }, [collaborators.length, error, isLoading]);
 
   useRepoHeader({ header: headerNode });
 
@@ -568,24 +532,30 @@ export function Collaborators({
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
-              <InviteCollaboratorsDialog
-                owner={owner}
-                repo={repo}
-                state={addCollaboratorState}
-                action={addCollaboratorAction}
-                open={inviteDialogOpen}
-                onOpenChange={setInviteDialogOpen}
-                value={emails}
-                onValueChange={setEmails}
+              <Button
+                variant="default"
+                size="default"
                 disabled={isLoading}
-                triggerLabel="Invite a collaborator"
-                triggerVariant="default"
-                triggerSize="default"
-              />
+                onClick={() => setInviteDialogOpen(true)}
+              >
+                Invite a collaborator
+              </Button>
             </EmptyContent>
           </Empty>
         </div>
       )}
+
+      {/* Render the dialog exactly once here to avoid mobile/desktop header duplication */}
+      <InviteCollaboratorsDialog
+        owner={owner}
+        repo={repo}
+        state={addCollaboratorState}
+        action={addCollaboratorAction}
+        open={inviteDialogOpen}
+        onOpenChange={setInviteDialogOpen}
+        value={emails}
+        onValueChange={setEmails}
+      />
     </div>
   );
 }
