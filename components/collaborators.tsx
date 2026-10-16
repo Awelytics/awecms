@@ -125,7 +125,7 @@ function InviteCollaboratorsDialog({
           {triggerLabel || "Invite"}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md p-4 sm:p-6">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Invite collaborators</DialogTitle>
           <DialogDescription>
@@ -146,8 +146,7 @@ function InviteCollaboratorsDialog({
               value={value}
               onChange={(event) => onValueChange(event.target.value)}
               required
-              rows={3}
-              className="resize-none"
+              rows={4}
             />
           </div>
 
@@ -157,11 +156,7 @@ function InviteCollaboratorsDialog({
               value={selectedRole}
               onValueChange={(val) => setSelectedRole(val as "admin" | "editor")}
             >
-              <SelectTrigger
-                id="role-select"
-                className="w-full !h-auto py-2.5 px-3.5 items-center data-[size=default]:!h-auto"
-                style={{ height: "auto" }}
-              >
+              <SelectTrigger id="role-select" data-size="auto" className="w-full h-auto py-2.5 px-3.5 items-center">
                 <SelectValue placeholder="Select a role" />
               </SelectTrigger>
               <SelectContent>

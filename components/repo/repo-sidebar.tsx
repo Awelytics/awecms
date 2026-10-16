@@ -357,8 +357,8 @@ export function RepoSidebar() {
       });
     }
 
-    // Site Configuration (.pages.yml): visible to site Admin and GitHub admin, hidden for Editor
-    if (isAdmin && isConfigEnabled(configObject)) {
+    // Site Configuration (.pages.yml): only visible to GitHub repo admins with write access
+    if (isGithubAdmin && isConfigEnabled(configObject)) {
       items.push({
         key: "admin-configuration",
         label: "Configuration",

@@ -70,7 +70,7 @@ const RepoNav = ({
     const isGithubAdmin = Boolean(hasGithubWriteAccess);
     const isAdmin = currentUserRole === "admin" || isGithubAdmin;
 
-    const settingsItem = isAdmin && isConfigEnabled(configObject)
+    const settingsItem = isGithubAdmin && isConfigEnabled(configObject)
       ? {
         key: "configuration",
         icon: <Settings className="h-5 w-5 mr-2" />,
