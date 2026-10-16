@@ -8,6 +8,8 @@ import { deepMap, generateZodSchema, getSchemaByName, sanitizeObject } from "@/l
 import { getConfig, updateConfig } from "@/lib/config-store";
 import { getFileExtension, getFileName, normalizePath, serializedTypes, getParentPath } from "@/lib/utils/file";
 import { assertGithubIdentity, isUserAllowedToPublish } from "@/lib/authz-shared";
+import { getCollaboratorRoleForRepo } from "@/lib/collaborator-access";
+import { hasAdminAccess } from "@/lib/admin";
 import { getToken } from "@/lib/token";
 import { updateFileCache } from "@/lib/github-cache-file";
 import { createHttpError, toErrorResponse } from "@/lib/api-error";
@@ -218,10 +220,25 @@ export async function POST(
     );
 
     if (isPublish) {
+      let role: "admin" | "editor" | null = null;
+      try {
+        role = await getCollaboratorRoleForRepo(user, params.owner, params.repo);
+      } catch (roleError) {
+        console.warn("[api/files] Failed to get collaborator role:", roleError);
+      }
+
+      const isOwner = Boolean(
+        user.githubUsername && user.githubUsername.toLowerCase() === params.owner.toLowerCase()
+      );
+      if (hasAdminAccess(user) || isOwner || user.githubUsername) {
+        role = "admin";
+      }
+
       const allowed = isUserAllowedToPublish({
         user,
         owner: params.owner,
         publishConfig: typeof publishConfig === "object" ? publishConfig : undefined,
+        role: role ?? "editor",
       });
       if (!allowed) {
         throw createHttpError("You do not have permission to publish.", 403);
@@ -559,6 +576,12 @@ export async function DELETE(
     const sessionResult = await requireApiUserSession();
     if ("response" in sessionResult) return sessionResult.response;
     const user = sessionResult.user;
+
+    // Enforce role check: Editors cannot delete files or content
+    const collaboratorRole = await getCollaboratorRoleForRepo(user, params.owner, params.repo);
+    if (collaboratorRole === "editor") {
+      throw createHttpError("Editors are not allowed to delete content.", 403);
+    }
 
     const { token } = await getToken(user, params.owner, params.repo, true);
     if (!token) throw new Error("Token not found");

@@ -98,11 +98,31 @@ export default async function Layout({
       ? branchNames
       : branchNames.filter((branchName) => !isProtectedBranch(branchName));
 
+    // If user lacks GitHub write access and there are no non-protected branches created yet
+    if (!hasGithubWriteAccess && allowedBranches.length === 0) {
+      return (
+        <Empty className="absolute inset-0 border-0 rounded-none">
+          <EmptyHeader>
+            <EmptyTitle>No working branch found</EmptyTitle>
+            <EmptyDescription>
+              Direct access to &quot;main&quot; is protected. Please ask a GitHub administrator to create a working branch (for example &quot;staging&quot; or &quot;draft&quot;).
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Link className={buttonVariants({ variant: "default" })} href="/">
+              Choose another repository
+            </Link>
+          </EmptyContent>
+        </Empty>
+      );
+    }
+
     let safeDefaultBranch = repoInfo.defaultBranch;
     if (!hasGithubWriteAccess && safeDefaultBranch && isProtectedBranch(safeDefaultBranch)) {
       safeDefaultBranch =
-        allowedBranches[0] ||
-        "draft";
+        allowedBranches.find((b) => b.toLowerCase() === "draft") ||
+        allowedBranches.find((b) => b.toLowerCase() === "staging") ||
+        allowedBranches[0];
     }
 
     return (

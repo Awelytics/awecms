@@ -23,7 +23,7 @@ export default async function Layout({
       : "/sign-in";
   if (!session?.user) return redirect(signInUrl);
 
-  let accounts;
+  let accounts: any[] = [];
   try {
     accounts = await getAccounts(session.user as User);
   } catch (error) {
@@ -31,7 +31,8 @@ export default async function Layout({
       await invalidateSessionForGithubAuthError(session);
       return <GithubAuthExpired />;
     }
-    throw error;
+    console.warn("[main-layout] Failed to fetch user accounts, falling back to empty list:", error);
+    accounts = [];
   }
 
   const userWithAccounts = {

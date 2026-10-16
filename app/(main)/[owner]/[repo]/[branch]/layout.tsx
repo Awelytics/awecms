@@ -45,8 +45,7 @@ const decodedBranch = decodeURIComponent(branch);
     }
 
     if (!hasWriteAccess) {
-      // Find fallback branch (prefer draft -> staging -> first non-protected branch)
-      let targetBranch = "draft";
+      // Find a real existing non-protected branch (prefer draft -> staging -> other)
       try {
         const { token: fallbackToken } = await getToken(user, owner, repo);
         if (fallbackToken) {
@@ -55,22 +54,25 @@ const decodedBranch = decodeURIComponent(branch);
             const lower = b.toLowerCase();
             return lower !== "main" && lower !== "master";
           });
-          if (nonProtected.includes("draft")) {
-            targetBranch = "draft";
-          } else if (nonProtected.includes("staging")) {
-            targetBranch = "staging";
-          } else if (nonProtected.length > 0) {
-            targetBranch = nonProtected[0];
+
+          if (nonProtected.length > 0) {
+            const targetBranch =
+              nonProtected.find((b) => b.toLowerCase() === "draft") ||
+              nonProtected.find((b) => b.toLowerCase() === "staging") ||
+              nonProtected[0];
+
+            return redirect(`/${owner}/${repo}/${encodeURIComponent(targetBranch)}`);
           }
         }
       } catch (err) {
         console.warn("[branch-layout] Failed to resolve fallback branch:", err);
       }
 
-      return redirect(`/${owner}/${repo}/${encodeURIComponent(targetBranch)}`);
+      // If no valid non-protected branches exist yet, redirect to repository root
+      return redirect(`/${owner}/${repo}`);
     }
   }
-  
+
   let config = {
     owner: owner.toLowerCase(),
     repo: repo.toLowerCase(),

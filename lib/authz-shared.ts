@@ -55,34 +55,27 @@ export const isUserAllowedToPublish = ({
   role?: "admin" | "editor" | null;
 }): boolean => {
   if (!user) return false;
+  // If publishing is explicitly turned off in settings
   if (publishConfig && publishConfig.enabled === false) return false;
 
-  // 1. Direct role check: both admin and editor roles grant publish
+  // If a role is explicitly defined, both editor and admin can publish
   if (role === "admin" || role === "editor") return true;
 
-  const userEmail = user.email?.trim().toLowerCase();
-  const userName = user.name?.trim().toLowerCase();
-  const githubUser = (user.githubUsername || user.name)?.trim().toLowerCase();
-
-  // 2. Direct match by email, username, or name in publish config
-  if (publishConfig?.users) {
+  // Check explicit user whitelist if configured in .pages.yml
+  if (publishConfig?.users && publishConfig.users.length > 0) {
+    const userEmail = user.email?.trim().toLowerCase();
+    const userName = user.name?.trim().toLowerCase();
+    const githubUser = (user.githubUsername || user.name)?.trim().toLowerCase();
     const allowedUsers = publishConfig.users.map((u) => String(u).trim().toLowerCase());
-    if (userEmail && allowedUsers.includes(userEmail)) return true;
-    if (userName && allowedUsers.includes(userName)) return true;
-    if (githubUser && allowedUsers.includes(githubUser)) return true;
+    return Boolean(
+      (userEmail && allowedUsers.includes(userEmail)) ||
+      (userName && allowedUsers.includes(userName)) ||
+      (githubUser && allowedUsers.includes(githubUser))
+    );
   }
 
-  // 3. Wildcard role
-  if (publishConfig?.roles?.includes("*")) return true;
-
-  // 4. Platform superadmin / repo owner check
-  const isOwner = Boolean(githubUser && githubUser === owner.toLowerCase());
-  const isAdmin = Boolean(user.isAdmin || isOwner);
-
-  if (publishConfig?.roles?.includes("admin") && isAdmin) return true;
-
-  // 5. Default fallback if no users and no roles defined: allow admins/owners
-  return isAdmin;
+  // By default, allow publishing for all authenticated repository users
+  return true;
 };
 
 export { hasGithubIdentity, assertGithubIdentity };
