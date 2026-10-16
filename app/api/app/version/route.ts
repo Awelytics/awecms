@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 
-const REPO = "pagescms/pagescms";
+const REPO = "Awelytics/awecms";
 const PACKAGE_JSON_URL =
-  "https://raw.githubusercontent.com/pagescms/pagescms/main/package.json";
-
+  "https://raw.githubusercontent.com/Awelytics/awecms/main/package.json";
 export async function GET() {
   try {
     const response = await fetch(PACKAGE_JSON_URL, {

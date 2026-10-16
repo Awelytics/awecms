@@ -156,24 +156,29 @@ function InviteCollaboratorsDialog({
               value={selectedRole}
               onValueChange={(val) => setSelectedRole(val as "admin" | "editor")}
             >
-              <SelectTrigger id="role-select" className="w-full">
+              <SelectTrigger id="role-select" className="w-full h-auto py-2.5 px-3.5 items-center">
                 <SelectValue placeholder="Select a role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="editor">
-                  <div className="flex items-center gap-2">
-                    <Pencil className="size-4 text-muted-foreground" />
-                    <div className="flex flex-col text-left">                      <span className="font-medium">Editor</span>
-                      <span className="text-xs text-muted-foreground">Drafts only (Save with [skip ci]), cannot publish to live site</span>
+                <SelectItem value="editor" className="py-2.5">
+                  <div className="flex items-center gap-3">
+                    <Pencil className="size-4 shrink-0 text-muted-foreground" />
+                    <div className="flex flex-col text-left">
+                      <span className="font-medium text-sm leading-tight">Editor</span>
+                      <span className="text-xs text-muted-foreground leading-normal mt-0.5">
+                        Drafts only (Save with [skip ci]), cannot publish to live site
+                      </span>
                     </div>
                   </div>
                 </SelectItem>
-                <SelectItem value="admin">
-                  <div className="flex items-center gap-2">
-                    <Shield className="size-4 text-primary" />
+                <SelectItem value="admin" className="py-2.5">
+                  <div className="flex items-center gap-3">
+                    <Shield className="size-4 shrink-0 text-primary" />
                     <div className="flex flex-col text-left">
-                      <span className="font-medium">Admin</span>
-                      <span className="text-xs text-muted-foreground">Full access: edit content and publish to production</span>
+                      <span className="font-medium text-sm leading-tight">Admin</span>
+                      <span className="text-xs text-muted-foreground leading-normal mt-0.5">
+                        Full access: edit content and publish to production
+                      </span>
                     </div>
                   </div>
                 </SelectItem>

@@ -241,7 +241,7 @@ export function CachePage({
                 className="text-muted-foreground hover:text-foreground"
               >
                 <Link
-                  href="https://pagescms.org/docs/development/caching/"
+                  href="https://awelytics.pro/docs/development/caching/"
                   target="_blank"
                   rel="noreferrer"
                 >

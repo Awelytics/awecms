@@ -75,7 +75,7 @@ export const InviteEmailTemplate = ({
               >
                 {invitedByName}
               </Link>{" "}
-              has invited you to the &quot;{repoName}&quot; project on Pages
+              has invited you to the &quot;{repoName}&quot; project on Awelytics
               CMS. Use the following link to start collaborating:
             </Text>
             <Section className="text-center mt-[24px] mb-[24px]">

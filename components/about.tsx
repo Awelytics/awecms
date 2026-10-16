@@ -28,7 +28,7 @@ const version =
   process.env.NEXT_PUBLIC_APP_VERSION ??
   inferredTagVersion ??
   packageJson.version;
-const UPDATE_DOCS_URL = "https://pagescms.org/docs";
+const UPDATE_DOCS_URL = "https://github.com/Awelytics/awecms/releases";
 
 export function About() {
   const [open, setOpen] = useState(false);
@@ -133,8 +133,8 @@ export function About() {
           <Row
             label="Website"
             value={
-              <ExternalLink href="https://pagescms.org">
-                pagescms.org
+              <ExternalLink href="https://awelytics.pro">
+                awelytics.pro
               </ExternalLink>
             }
           />
@@ -149,8 +149,8 @@ export function About() {
           <Row
             label="GitHub"
             value={
-              <ExternalLink href="https://github.com/pagescms/pagescms">
-                pagescms/pagescms
+              <ExternalLink href="https://github.com/Awelytics/awecms">
+                Awelytics/awecms
               </ExternalLink>
             }
           />
