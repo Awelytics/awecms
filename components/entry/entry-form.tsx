@@ -465,7 +465,7 @@ const ListField = ({
     <FormField
       name={fieldName}
       render={() => (
-        <FormItem className={cn("col-span-12 w-full", field.className)} style={getGridSpanStyle(field.className)}>
+        <FormItem data-span={getGridSpan(field.className)} className={cn("admin-grid-item", field.className)}>
           {shouldShowListHeader && (
             <div className="flex items-center h-5 gap-x-2">
               {field.label !== false && (
@@ -866,6 +866,13 @@ const ObjectField = forwardRef<HTMLDivElement, NestedFieldProps>(
 
 ObjectField.displayName = "ObjectField";
 
+// Helper to extract column span number from className
+const getGridSpan = (className?: string): string => {
+  if (!className) return "12";
+  const match = className.match(/col-span-(\d+)/);
+  return match ? match[1] : "12";
+};
+
 const SingleField = ({
   field,
   fieldName,
@@ -967,7 +974,7 @@ const SingleField = ({
         name={fieldName}
         control={control}
         render={({ field: rhfManagedFieldProps }) => (
-          <FormItem className={cn("col-span-12 w-full", field.className)} style={getGridSpanStyle(field.className)}>
+          <FormItem data-span={getGridSpan(field.className)} className={cn("admin-grid-item", field.className)}>
             {shouldShowFieldMeta && (
               <div className="flex items-center justify-between min-h-6 gap-x-2">
                 <div className="flex items-center gap-x-2 min-w-0">
@@ -1027,18 +1034,6 @@ const SingleField = ({
 };
 
 SingleField.displayName = "SingleField";
-
-// Helper to extract grid span from className and apply it via inline styles
-// This prevents Tailwind CSS purge from dropping dynamic classes like col-span-8
-const getGridSpanStyle = (className?: string): React.CSSProperties => {
-  if (!className) return {};
-  const match = className.match(/col-span-(\d+)/);
-  if (match) {
-    const span = match[1];
-    return { gridColumn: `span ${span} / span ${span}` };
-  }
-  return {};
-};
 
 const EntryForm = ({
   fields,
@@ -1127,15 +1122,20 @@ const EntryForm = ({
           : currentFieldName;
         
         // Render virtual Card layout without data nesting
+        // Render virtual Card layout with responsive spans and soft border
         if (effectiveField.type === "card") {
+          const span = getGridSpan(effectiveField.className);
           return (
             <div 
               key={currentFieldKey} 
-              style={getGridSpanStyle(effectiveField.className)}
-              className={cn("col-span-12 w-full bg-card text-card-foreground rounded-xl border shadow-sm p-6", effectiveField.className)}
+              data-span={span}
+              className={cn(
+                "admin-grid-item bg-white dark:bg-card text-card-foreground rounded-xl border border-[#dedcdc] dark:border-border shadow-sm p-6",
+                effectiveField.className
+              )}
             >
               {(effectiveField.label !== false || effectiveField.description) && (
-                <div className="mb-6 space-y-1.5 border-b pb-4">
+                <div className="mb-6 space-y-1.5 border-b border-[#dedcdc] dark:border-border pb-4">
                   {effectiveField.label !== false && (
                     <h3 className="text-lg font-semibold leading-none tracking-tight">
                       {effectiveField.label || effectiveField.name}
@@ -1148,7 +1148,7 @@ const EntryForm = ({
                   )}
                 </div>
               )}
-              {/* Render child fields in a 12-column grid */}
+              {/* Render child fields in a responsive 12-column grid */}
               <div className="grid grid-cols-12 gap-4 items-start w-full">
                 {effectiveField.fields && renderFields(
                   effectiveField.fields as FieldWithReadonlyMeta[],
@@ -1229,10 +1229,32 @@ const EntryForm = ({
       <form
         id="entry-form"
         onSubmit={handleFormSubmit}
-        className="w-full max-w-[1200px] mx-auto grid grid-cols-12 items-start gap-6"
+        className="w-full max-w-[1200px] mx-auto grid grid-cols-12 items-start gap-6 px-2 sm:px-4"
       >
+        {/* Responsive CSS grid: 100% width on mobile, specified columns on desktop */}
+        <style dangerouslySetInnerHTML={{ __html: `
+          .admin-grid-item {
+            grid-column: span 12 / span 12;
+            width: 100%;
+          }
+          @media (min-width: 768px) {
+            .admin-grid-item[data-span="1"] { grid-column: span 1 / span 1; }
+            .admin-grid-item[data-span="2"] { grid-column: span 2 / span 2; }
+            .admin-grid-item[data-span="3"] { grid-column: span 3 / span 3; }
+            .admin-grid-item[data-span="4"] { grid-column: span 4 / span 4; }
+            .admin-grid-item[data-span="5"] { grid-column: span 5 / span 5; }
+            .admin-grid-item[data-span="6"] { grid-column: span 6 / span 6; }
+            .admin-grid-item[data-span="7"] { grid-column: span 7 / span 7; }
+            .admin-grid-item[data-span="8"] { grid-column: span 8 / span 8; }
+            .admin-grid-item[data-span="9"] { grid-column: span 9 / span 9; }
+            .admin-grid-item[data-span="10"] { grid-column: span 10 / span 10; }
+            .admin-grid-item[data-span="11"] { grid-column: span 11 / span 11; }
+            .admin-grid-item[data-span="12"] { grid-column: span 12 / span 12; }
+          }
+        `}} />
+
         {filePath && (
-          <div className="space-y-2 overflow-hidden">
+          <div className="col-span-12 space-y-2 overflow-hidden">
             <FormLabel>Filename</FormLabel>
             {filePath}
           </div>
