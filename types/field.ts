@@ -3,6 +3,8 @@ export type Field = {
   label?: string | false;
   description?: string | null;
   type: string;
+  className?: string;
+  content?: string;
   default?: any;
   list?: boolean | { min?: number; max?: number; default?: any; collapsible?: boolean | { collapsed?: boolean; summary?: string } };
   collapsible?: boolean | { collapsed?: boolean; summary?: string };

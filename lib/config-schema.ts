@@ -212,6 +212,7 @@ const MediaConfigObject = z
       .optional(),
     name: z.string().optional(),
     label: z.string().optional(),
+    icon: z.string().optional().nullable(),
     actions: z
       .array(ActionSchema, {
         message: "'actions' must be an array of action definitions.",
@@ -348,6 +349,8 @@ const generateFieldObjectSchema = (
       ])
       .optional(),
     description: z.string().optional().nullable(),
+    className: z.string().optional().nullable(),
+    content: z.string().optional().nullable(),
     component: z
       .string({
         invalid_type_error: "'component' must be a string.",
@@ -391,7 +394,7 @@ const generateFieldObjectSchema = (
           })
           .min(1, { message: "'type' cannot be empty." })
           .refine(
-            (val) => fieldTypes.has(val) || ["object", "block"].includes(val),
+            (val) => fieldTypes.has(val) || ["object", "block", "card", "info"].includes(val),
             {
               message: "'type' must be a valid field type.",
               path: ["type"],
@@ -534,6 +537,7 @@ const ContentLeafSchema = z
       }),
     label: z.string().optional(),
     description: z.string().optional().nullable(),
+    icon: z.string().optional().nullable(),
     type: z.enum(["collection", "file"], {
       required_error: "'type' is required.",
       message: "'type' must be either 'collection' or 'file'.",
@@ -752,6 +756,7 @@ const ContentGroupSchema: z.ZodType<any> = z.lazy(() =>
         }),
       label: z.string().optional(),
       description: z.string().optional().nullable(),
+      icon: z.string().optional().nullable(),
       type: z.literal("group", {
         invalid_type_error: "'type' must be 'group'.",
       }),

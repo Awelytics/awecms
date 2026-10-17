@@ -1,5 +1,6 @@
 "use client";
 
+import * as LucideIcons from "lucide-react";
 import { RepoSearchDialog } from "@/components/repo/repo-search-dialog";
 import {
   Fragment,
@@ -87,6 +88,7 @@ type NavigationNode = {
   type: "group" | "file" | "collection" | "media";
   name: string;
   label?: string;
+  icon?: string | null;
   items?: NavigationNode[];
 };
 
@@ -317,6 +319,7 @@ export function RepoSidebar() {
       type: item.type,
       name: item.name,
       label: item.label || item.name,
+      icon: item.icon,
     }));
   }, [config]);
 
@@ -330,6 +333,7 @@ export function RepoSidebar() {
       type: "media",
       name: item.name || "default",
       label: item.label || item.name || "Media",
+      icon: item.icon,
     }));
   }, [config]);
 
@@ -401,6 +405,10 @@ export function RepoSidebar() {
   );
 
   const getNodeIcon = (node: NavigationNode) => {
+    if (node.icon) {
+      const IconComponent = (LucideIcons as any)[node.icon];
+      if (IconComponent) return <IconComponent className="size-4" />;
+    }
     if (node.type === "collection") return <FileStack className="size-4" />;
     if (node.type === "media") return <FolderOpen className="size-4" />;
     return <FileText className="size-4" />;

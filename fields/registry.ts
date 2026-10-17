@@ -1,5 +1,6 @@
 import { Field } from "@/types/field";
 import { z } from "zod";
+import * as infoField from "@/fields/core/info";
 import * as booleanField from "@/fields/core/boolean";
 import * as codeField from "@/fields/core/code";
 import * as dateField from "@/fields/core/date";
@@ -56,5 +57,6 @@ registerField("select", selectField);
 registerField("string", stringField);
 registerField("text", textField);
 registerField("uuid", uuidField);
+registerField("info", infoField);
 
 export { labels, schemas, readFns, writeFns, defaultValues, editComponents, viewComponents, fieldTypes };

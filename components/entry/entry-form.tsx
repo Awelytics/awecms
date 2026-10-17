@@ -465,7 +465,7 @@ const ListField = ({
     <FormField
       name={fieldName}
       render={() => (
-        <FormItem>
+        <FormItem className={cn("col-span-12", field.className)}>
           {shouldShowListHeader && (
             <div className="flex items-center h-5 gap-x-2">
               {field.label !== false && (
@@ -913,7 +913,7 @@ const SingleField = ({
     const NestedComponent = field.type === "block" ? BlocksField : ObjectField;
 
     return (
-      <FormItem key={fieldName}>
+      <FormItem key={fieldName} className={cn("col-span-12", field.className)}>
         {shouldShowFieldMeta && (
           <div className="flex items-center h-5 gap-x-2">
             {field.label !== false && (
@@ -967,7 +967,7 @@ const SingleField = ({
         name={fieldName}
         control={control}
         render={({ field: rhfManagedFieldProps }) => (
-          <FormItem>
+          <FormItem className={cn("col-span-12", field.className)}>
             {shouldShowFieldMeta && (
               <div className="flex items-center justify-between min-h-6 gap-x-2">
                 <div className="flex items-center gap-x-2 min-w-0">
@@ -1113,6 +1113,43 @@ const EntryForm = ({
         const currentFieldKey = keyPrefix
           ? `${keyPrefix}.${effectiveField.name}`
           : currentFieldName;
+        
+        // Handling the virtual 'Card' type (a UI card with no nested data)
+         if (effectiveField.type === "card") {
+          return (
+            <div 
+              key={currentFieldKey} 
+              className={cn("col-span-12 bg-card text-card-foreground rounded-xl border shadow-sm p-6", effectiveField.className)}
+            >
+              {(effectiveField.label !== false || effectiveField.description) && (
+                <div className="mb-6 space-y-1.5 border-b pb-4">
+                  {effectiveField.label !== false && (
+                    <h3 className="text-lg font-semibold leading-none tracking-tight">
+                      {effectiveField.label || effectiveField.name}
+                    </h3>
+                  )}
+                  {effectiveField.description && (
+                    <p className="text-sm text-muted-foreground">
+                      {effectiveField.description}
+                    </p>
+                  )}
+                </div>
+              )}
+              {/* Render child fields within their own Grid, while preserving the parentName (without nesting the data!) */}
+              <div className="grid grid-cols-12 gap-6 items-start">
+                {effectiveField.fields && renderFields(
+                  effectiveField.fields as FieldWithReadonlyMeta[],
+                  parentName, 
+                  registerBeforeSubmitHook,
+                  runBeforeSubmitHooks,
+                  inheritedReadonly,
+                  currentFieldKey
+                )}
+              </div>
+            </div>
+          );
+        }
+
 
         if (
           effectiveField.list === true ||
@@ -1180,7 +1217,7 @@ const EntryForm = ({
       <form
         id="entry-form"
         onSubmit={handleFormSubmit}
-        className="w-full max-w-screen-md mx-auto grid items-start gap-6"
+        className="w-full max-w-[1200px] mx-auto grid grid-cols-12 items-start gap-6"
       >
         {filePath && (
           <div className="space-y-2 overflow-hidden">
