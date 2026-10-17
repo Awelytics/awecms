@@ -22,11 +22,13 @@ function getOptimizedThumbnailUrl(url: string | null, path: string | null): stri
 export function Thumbnail({
   name,
   path,
-  className
+  className,
+  fit = "cover",
 }: {
   name: string,
   path: string | null;
   className?: string;
+  fit?: "cover" | "contain";
 }) {
   const [rawUrl, setRawUrl] = useState<string | null>(null);
   const [error, setError] = useState(null);
@@ -75,7 +77,8 @@ export function Thumbnail({
                   target.src = rawUrl;
                 }
               }}
-              className="absolute inset-0 w-full h-full object-cover"
+              className={cn("absolute inset-0 w-full h-full select-none pointer-events-none", fit === "contain" ? "object-contain" : "object-cover")}
+
             />
           : error
             ? <div className="flex justify-center items-center absolute inset-0 text-muted-foreground" title={error}>

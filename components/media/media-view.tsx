@@ -754,12 +754,13 @@ const MediaView = ({
           <DialogTitle className="truncate pr-6">{detailItem.name}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="rounded-md overflow-hidden bg-muted flex items-center justify-center max-h-[50vh]">
+          <div className="rounded-md overflow-hidden bg-muted flex items-center justify-center min-h-48 max-h-[50vh] relative">
             {imageExtensionsSet.has((detailItem.extension || "").toLowerCase()) ? (
-              <img
-                src={detailItem.url || ""}
-                alt={detailItem.name}
-                className="max-h-[50vh] w-auto object-contain"
+              <Thumbnail
+                name={mediaConfig.name}
+                path={detailItem.path}
+                fit="contain"
+                className="h-64 aspect-video"
               />
             ) : (
               <File className="h-24 w-24 text-muted-foreground p-4" />
@@ -815,34 +816,46 @@ const MediaView = ({
     return (
       <MediaUpload media={mediaConfig.name} path={path} onUpload={handleUpload} extensions={filteredExtensions}>
         <div className="flex-1 flex flex-col space-y-4">
-          <header className="flex items-center gap-x-2 justify-between">
-            <div className="sm:flex-1">
-              <div className="hidden sm:block min-w-0 truncate overflow-hidden">{breadcrumbNode}</div>
-              <Button onClick={handleNavigateParent} size="icon-sm" variant="outline" className="shrink-0 sm:hidden" disabled={!path || path === mediaConfig.input}>
+          <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-x-2 min-w-0 flex-1">
+              <Button onClick={handleNavigateParent} size="icon-sm" variant="outline" className="shrink-0" disabled={!path || path === mediaConfig.input}>
                 <CornerLeftUp className="w-4 h-4"/>
               </Button>
+              <div className="min-w-0 truncate overflow-hidden">{breadcrumbNode}</div>
             </div>
-            <MediaHeaderActions
-              actionNode={mediaActions.length > 0 ? (
-                <RepoActionButtons
-                  actions={mediaActions}
-                  owner={config.owner}
-                  repo={config.repo}
-                  refName={config.branch}
-                  contextType="media"
-                  contextName={mediaConfig.name}
-                  contextPath={path}
-                  contextData={{
-                    label: mediaConfig.label || mediaConfig.name,
-                    input: mediaConfig.input,
-                    output: mediaConfig.output,
-                  }}
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="relative w-44 sm:w-56">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search in folder..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 h-9 text-sm"
                 />
-              ) : undefined}
-              mediaName={mediaConfig.name}
-              path={path}
-              onFolderCreate={handleFolderCreate}
-            />
+              </div>
+              <MediaHeaderActions
+                actionNode={mediaActions.length > 0 ? (
+                  <RepoActionButtons
+                    actions={mediaActions}
+                    owner={config.owner}
+                    repo={config.repo}
+                    refName={config.branch}
+                    contextType="media"
+                    contextName={mediaConfig.name}
+                    contextPath={path}
+                    contextData={{
+                      label: mediaConfig.label || mediaConfig.name,
+                      input: mediaConfig.input,
+                      output: mediaConfig.output,
+                    }}
+                  />
+                ) : undefined}
+                mediaName={mediaConfig.name}
+                path={path}
+                onFolderCreate={handleFolderCreate}
+              />
+            </div>
           </header>
           {mediaGrid}
           {detailDialog}
