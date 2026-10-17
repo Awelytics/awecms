@@ -10,7 +10,7 @@ export function Clarity() {
     // Respect browser "Do Not Track" header
     const dnt =
       navigator.doNotTrack === "1" ||
-      window.doNotTrack === "1" ||
+      (window as any).doNotTrack === "1" ||
       (navigator as any).msDoNotTrack === "1";
 
     if (!dnt && process.env.NODE_ENV === "production") {
