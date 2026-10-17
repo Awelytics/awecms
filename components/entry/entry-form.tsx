@@ -192,7 +192,7 @@ const SortableItem = ({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex items-center gap-x-1 w-full min-w-0 max-w-full",
+        "flex items-start gap-x-2 w-full min-w-0 max-w-full pt-1",
         isDragging ? "opacity-50 z-50" : "z-10",
       )}
       style={style}
@@ -495,11 +495,11 @@ const ListField = ({
                       type="button"
                       variant="ghost"
                       size="xs"
-                      className="ml-auto text-muted-foreground hover:text-foreground"
+                      className="ml-auto shrink-0 text-muted-foreground hover:text-foreground text-xs gap-1"
                       onClick={() => toggleAll(isAllExpanded)}
                     >
-                      {isAllExpanded ? <ChevronsDownUp /> : <ChevronsUpDown />}
-                      {isAllExpanded ? "Collapse all" : "Expand all"}
+                      {isAllExpanded ? <ChevronsDownUp className="size-3.5" /> : <ChevronsUpDown className="size-3.5" />}
+                      {isAllExpanded ? "Collapse" : "Expand"}
                     </Button>
                   );
                 })()}
@@ -845,8 +845,8 @@ const ObjectField = forwardRef<HTMLDivElement, NestedFieldProps>(
         )}
         <div
           className={cn(
-            "p-4 grid gap-6",
-            isCollapsible && "border-t",
+            "p-4 grid grid-cols-12 gap-4 w-full min-w-0",
+            isCollapsible && "border-t border-[#e8e8e8] dark:border-border",
             isOpen ? "" : "hidden",
           )}
         >
