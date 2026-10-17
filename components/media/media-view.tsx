@@ -52,8 +52,19 @@ import {
   File,
   Folder,
   FolderPlus,
-  Upload
+  Upload,
+  Search,
+  Copy,
+  ExternalLink
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 function MediaHeaderActions({
   actionNode,
@@ -125,6 +136,7 @@ type MediaFileTileProps = {
   onSelect: (path: string) => void;
   onDelete: (path: string) => void;
   onRename: (path: string, newPath: string) => void;
+  onViewDetails?: (item: MediaItem) => void;
 };
 
 const MediaFileTile = memo(function MediaFileTile({
@@ -138,18 +150,24 @@ const MediaFileTile = memo(function MediaFileTile({
   onSelect,
   onDelete,
   onRename,
+  onViewDetails,
 }: MediaFileTileProps) {
   const content = (
     <div className={cn(
-      "relative rounded-md",
+      "relative rounded-md group",
       selectable && "hover:bg-muted peer-focus:ring-offset-background peer-focus:ring-2 peer-focus:ring-ring peer-focus:ring-offset-2 peer-checked:ring-offset-background peer-checked:ring-offset-2 peer-checked:ring-2 peer-checked:ring-ring",
     )}>
-      {isImage
-        ? <Thumbnail name={mediaName} path={item.path} className="rounded-t-md aspect-video"/>
-        : <div className="flex items-center justify-center rounded-md aspect-video">
-            <File className="stroke-[0.5] h-24 w-24"/>
-          </div>
-      }
+      <div 
+        className={cn("cursor-pointer", !selectable && "hover:opacity-90 transition-opacity")}
+        onClick={() => !selectable && onViewDetails?.(item)}
+      >
+        {isImage
+          ? <Thumbnail name={mediaName} path={item.path} className="rounded-t-md aspect-video"/>
+          : <div className="flex items-center justify-center rounded-md aspect-video bg-muted">
+              <File className="stroke-[0.5] h-24 w-24"/>
+            </div>
+        }
+      </div>
       <div className="flex gap-x-2 items-center pt-2">
         <div className="overflow-hidden mr-auto h-9">
           <div className="text-sm font-medium truncate">{item.name}</div>
@@ -253,6 +271,8 @@ const MediaView = ({
 
   const [error, setError] = useState<string | null | undefined>(null);
   const [selected, setSelected] = useState(initialSelected || []);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [detailItem, setDetailItem] = useState<MediaItem | null>(null);
 
   useEffect(() => {
     setSelected(initialSelected || []);
@@ -271,12 +291,22 @@ const MediaView = ({
   // Filter the data based on filteredExtensions when displaying
   const filteredData = useMemo(() => {
     if (!data) return undefined;
-    if (filteredExtensionsSet.size === 0) return data;
-    return data.filter(item => 
-      item.type === "dir" ||
-      filteredExtensionsSet.has(item.extension?.toLowerCase())
-    );
-  }, [data, filteredExtensionsSet]);
+    let list = data;
+
+    if (filteredExtensionsSet.size > 0) {
+      list = list.filter(item => 
+        item.type === "dir" ||
+        filteredExtensionsSet.has(item.extension?.toLowerCase())
+      );
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(item => item.name.toLowerCase().includes(q));
+    }
+
+    return list;
+  }, [data, filteredExtensionsSet, searchQuery]);
 
   const sortMediaItems = useCallback((items: MediaItem[]) => {
     return [...items].sort((a, b) => {
@@ -416,6 +446,7 @@ const MediaView = ({
 
   const handleNavigate = useCallback((newPath: string) => {
     setPath(newPath);
+    setSearchQuery("");
     if (!onSelect) {
       const params = new URLSearchParams(window.location.search);
       params.set("path", newPath || mediaConfig.input);
@@ -569,33 +600,45 @@ const MediaView = ({
   }, [handleNavigate, mediaConfig.input, mediaConfig.label, mediaConfig.name, path, usePageHeader]);
 
   const headerNode = useMemo(() => (
-    <div className="flex items-center justify-between gap-x-2">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 w-full">
       <div className="min-w-0 truncate overflow-hidden">{breadcrumbNode}</div>
-      <MediaUpload media={mediaConfig.name} path={path} onUpload={handleUpload} extensions={filteredExtensions}>
-        <MediaHeaderActions
-          actionNode={mediaActions.length > 0 ? (
-            <RepoActionButtons
-              actions={mediaActions}
-              owner={config.owner}
-              repo={config.repo}
-              refName={config.branch}
-              contextType="media"
-              contextName={mediaConfig.name}
-              contextPath={path}
-              contextData={{
-                label: mediaConfig.label || mediaConfig.name,
-                input: mediaConfig.input,
-                output: mediaConfig.output,
-              }}
-            />
-          ) : undefined}
-          mediaName={mediaConfig.name}
-          path={path}
-          onFolderCreate={handleFolderCreate}
-        />
-      </MediaUpload>
+      <div className="flex items-center gap-2">
+        <div className="relative w-48 sm:w-64">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search in folder..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-8 h-9 text-sm"
+          />
+        </div>
+        <MediaUpload media={mediaConfig.name} path={path} onUpload={handleUpload} extensions={filteredExtensions}>
+          <MediaHeaderActions
+            actionNode={mediaActions.length > 0 ? (
+              <RepoActionButtons
+                actions={mediaActions}
+                owner={config.owner}
+                repo={config.repo}
+                refName={config.branch}
+                contextType="media"
+                contextName={mediaConfig.name}
+                contextPath={path}
+                contextData={{
+                  label: mediaConfig.label || mediaConfig.name,
+                  input: mediaConfig.input,
+                  output: mediaConfig.output,
+                }}
+              />
+            ) : undefined}
+            mediaName={mediaConfig.name}
+            path={path}
+            onFolderCreate={handleFolderCreate}
+          />
+        </MediaUpload>
+      </div>
     </div>
-  ), [breadcrumbNode, config.branch, config.owner, config.repo, filteredExtensions, handleFolderCreate, handleUpload, mediaActions, mediaConfig.input, mediaConfig.label, mediaConfig.name, mediaConfig.output, path]);
+  ), [breadcrumbNode, config.branch, config.owner, config.repo, filteredExtensions, handleFolderCreate, handleUpload, mediaActions, mediaConfig.input, mediaConfig.label, mediaConfig.name, mediaConfig.output, path, searchQuery]);
 
   useOptionalRepoHeader(
     { header: headerNode },
@@ -686,6 +729,7 @@ const MediaView = ({
                           onSelect={handleSelect}
                           onDelete={handleDelete}
                           onRename={handleRename}
+                          onViewDetails={(item) => setDetailItem(item)}
                         />
                     }
                     
@@ -702,6 +746,70 @@ const MediaView = ({
       </div>
     </MediaUpload.DropZone>
   );
+
+  const detailDialog = detailItem ? (
+    <Dialog open={!!detailItem} onOpenChange={(open) => !open && setDetailItem(null)}>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle className="truncate pr-6">{detailItem.name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="rounded-md overflow-hidden bg-muted flex items-center justify-center max-h-[50vh]">
+            {imageExtensionsSet.has((detailItem.extension || "").toLowerCase()) ? (
+              <img
+                src={detailItem.url || ""}
+                alt={detailItem.name}
+                className="max-h-[50vh] w-auto object-contain"
+              />
+            ) : (
+              <File className="h-24 w-24 text-muted-foreground p-4" />
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div>
+              <span className="text-muted-foreground">Size: </span>
+              <span className="font-medium">{typeof detailItem.size === "number" ? getFileSize(detailItem.size) : "—"}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Type: </span>
+              <span className="font-medium uppercase">{detailItem.extension || "File"}</span>
+            </div>
+            <div className="col-span-2">
+              <span className="text-muted-foreground block text-xs mb-1">Path:</span>
+              <div className="flex items-center gap-1">
+                <code className="text-xs bg-muted px-2 py-1 rounded flex-1 truncate">{detailItem.path}</code>
+                <Button
+                  size="icon-xs"
+                  variant="outline"
+                  type="button"
+                  title="Copy path"
+                  onClick={() => {
+                    navigator.clipboard.writeText(detailItem.path);
+                    toast.success("Path copied to clipboard");
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+                {detailItem.url && (
+                  <Button
+                    size="icon-xs"
+                    variant="outline"
+                    type="button"
+                    title="Open original"
+                    asChild
+                  >
+                    <a href={detailItem.url} target="_blank" rel="noreferrer">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  ) : null;
 
   if (!usePageHeader) {
     return (
@@ -737,6 +845,7 @@ const MediaView = ({
             />
           </header>
           {mediaGrid}
+          {detailDialog}
         </div>
       </MediaUpload>
     );
@@ -746,6 +855,7 @@ const MediaView = ({
     <div className="flex-1 flex flex-col space-y-4">
       <MediaUpload media={mediaConfig.name} path={path} onUpload={handleUpload} extensions={filteredExtensions}>
         {mediaGrid}
+        {detailDialog}
       </MediaUpload>
     </div>
   );
