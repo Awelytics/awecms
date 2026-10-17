@@ -40,7 +40,7 @@ export function RepoSearchDialog({
     { revalidateOnFocus: false, dedupingInterval: 60000 }
   );
 
-  // Filter entries in-memory by search query
+  // Universal search across file path, title, frontmatter (url, description, tags) and full content
   const filteredEntries = useMemo(() => {
     if (!entries) return [];
     if (!query.trim()) return entries.slice(0, 30); // Show recent 30 items initially
@@ -48,6 +48,7 @@ export function RepoSearchDialog({
     const q = query.toLowerCase().trim();
     return entries
       .filter((item) =>
+        (item.searchableText && item.searchableText.toLowerCase().includes(q)) ||
         item.title.toLowerCase().includes(q) ||
         item.subtitle.toLowerCase().includes(q) ||
         item.group.toLowerCase().includes(q)
@@ -131,7 +132,16 @@ export function RepoSearchDialog({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">{item.title}</div>
-                      <div className="text-xs text-muted-foreground truncate">{item.subtitle}</div>
+                      <div className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
+                        {item.itemUrl ? (
+                          <span className="text-primary/80 font-mono text-[11px] truncate">{item.itemUrl}</span>
+                        ) : (
+                          <span className="truncate">{item.subtitle}</span>
+                        )}
+                        {item.description ? (
+                          <span className="truncate text-muted-foreground/70 hidden sm:inline">• {item.description}</span>
+                        ) : null}
+                      </div>
                     </div>
                     <span className="text-[10px] uppercase font-mono tracking-wider text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded shrink-0">
                       {item.group}
