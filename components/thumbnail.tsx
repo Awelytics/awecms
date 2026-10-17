@@ -7,6 +7,18 @@ import { useConfig } from "@/contexts/config-context";
 import { cn } from "@/lib/utils";
 import { Ban, ImageOff, Loader } from "lucide-react";
 
+// Generate optimized thumbnail URL using wsrv.nl CDN
+function getOptimizedThumbnailUrl(url: string | null, path: string | null): string | null {
+  if (!url) return null;
+
+  // SVG files are vectors, serve them directly without resizing
+  const isSvg = path?.toLowerCase().endsWith(".svg") || url.toLowerCase().includes(".svg");
+  if (isSvg) return url;
+
+  // wsrv.nl caches and resizes images to WebP via Cloudflare edge CDN
+  return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=400&h=300&fit=cover&output=webp`;
+}
+
 export function Thumbnail({
   name,
   path,
@@ -53,9 +65,16 @@ export function Thumbnail({
       {path
         ? rawUrl
           ? <img
-              src={rawUrl}
+              src={getOptimizedThumbnailUrl(rawUrl, path) || rawUrl}
               alt={path.split("/").pop() || "thumbnail"}
               loading="lazy"
+              onError={(e) => {
+                // Fallback to original raw GitHub URL if proxy fails
+                const target = e.currentTarget;
+                if (target.src !== rawUrl) {
+                  target.src = rawUrl;
+                }
+              }}
               className="absolute inset-0 w-full h-full object-cover"
             />
           : error

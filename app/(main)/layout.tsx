@@ -8,6 +8,7 @@ import { GithubAuthExpired } from "@/components/github-auth-expired";
 import { isGithubAuthError } from "@/lib/github-auth";
 import { invalidateSessionForGithubAuthError } from "@/lib/github-auth-server";
 import { hasAdminAccess } from "@/lib/admin";
+import { Clarity } from "@/components/clarity";
 
 export default async function Layout({
   children,
@@ -44,6 +45,7 @@ export default async function Layout({
 	return (
     <UserProvider user={userWithAccounts}>
       {children}
+      <Clarity />
     </UserProvider>
   );
 }
