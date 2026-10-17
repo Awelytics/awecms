@@ -4,6 +4,7 @@ import { Fragment, memo, type ReactNode, startTransition, useCallback, useEffect
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useConfig } from "@/contexts/config-context";
+import { useRepo } from "@/contexts/repo-context";
 import { RepoActionButtons } from "@/components/repo/repo-action-buttons";
 import {
   extensionCategories,
@@ -133,6 +134,7 @@ type MediaFileTileProps = {
   isImage: boolean;
   displaySize: string;
   portalContainer: HTMLDivElement | null;
+  canDelete?: boolean;
   onSelect: (path: string) => void;
   onDelete: (path: string) => void;
   onRename: (path: string, newPath: string) => void;
@@ -147,6 +149,7 @@ const MediaFileTile = memo(function MediaFileTile({
   isImage,
   displaySize,
   portalContainer,
+  canDelete,
   onSelect,
   onDelete,
   onRename,
@@ -178,6 +181,7 @@ const MediaFileTile = memo(function MediaFileTile({
           sha={item.sha || ""}
           type="media"
           name={mediaName}
+          canDelete={canDelete}
           onDelete={onDelete}
           onRename={onRename}
           portalProps={{ container: portalContainer }}
@@ -232,6 +236,10 @@ const MediaView = ({
   const { config } = useConfig();
   if (!config) throw new Error(`Configuration not found.`);
   const { mutate } = useSWRConfig();
+  const { currentUserRole } = useRepo();
+
+  // Editors are protected from accidental data loss: canDelete is false for editors
+  const canDelete = currentUserRole !== "editor";
 
   const mediaConfig = useMemo(() => {
     if (!media) return config.object.media[0];
@@ -726,6 +734,7 @@ const MediaView = ({
                           isImage={isImage}
                           displaySize={displaySize}
                           portalContainer={filesGridRef.current}
+                          canDelete={canDelete}
                           onSelect={handleSelect}
                           onDelete={handleDelete}
                           onRename={handleRename}
