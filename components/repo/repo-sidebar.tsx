@@ -1,5 +1,6 @@
 "use client";
 
+import { RepoSearchDialog } from "@/components/repo/repo-search-dialog";
 import {
   Fragment,
   useCallback,
@@ -66,6 +67,7 @@ import {
   FileStack,
   FileText,
   FolderOpen,
+  Search,
   ListVideo,
   LogOut,
   Moon,
@@ -265,6 +267,19 @@ export function RepoSidebar() {
   const { config } = useConfig();
   const { isMobile, setOpenMobile } = useSidebar();
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  // Global shortcut: Cmd+K / Ctrl+K
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
     if (isMobile) {
@@ -606,6 +621,21 @@ export function RepoSidebar() {
           <SidebarMenuItem>
             <RepoSwitcher />
           </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              className="w-full justify-between bg-muted/50 hover:bg-muted text-muted-foreground border border-border/50 rounded-md px-2.5 h-8 text-xs font-normal"
+            >
+              <div className="flex items-center gap-2">
+                <Search className="size-3.5" />
+                <span>Search repository...</span>
+              </div>
+              <kbd className="pointer-events-none inline-flex h-4 select-none items-center gap-0.5 rounded border bg-background px-1 font-mono text-[10px] text-muted-foreground">
+                <span className="text-[9px]">⌘</span>K
+              </kbd>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
@@ -622,6 +652,7 @@ export function RepoSidebar() {
           <About />
         </div>
       </SidebarFooter>
+      <RepoSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
     </Sidebar>
   );
 }
