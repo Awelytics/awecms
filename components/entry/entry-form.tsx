@@ -246,9 +246,9 @@ const ListItemRow = memo(function ListItemRow({
   const isReadonly = Boolean(field.readonly);
   return (
     <SortableItem id={id} readonly={isReadonly}>
-      <div className="grid gap-6 flex-1 min-w-0 max-w-full">
+      <div className="flex-1 min-w-0 overflow-hidden">
         <SingleField
-          field={field}
+          field={{ ...field, className: undefined }}
           fieldName={`${fieldName}.${index}`}
           keyPrefix={id}
           renderFields={renderFields}
@@ -1130,7 +1130,7 @@ const EntryForm = ({
               key={currentFieldKey} 
               data-span={span}
               className={cn(
-                "admin-grid-item bg-white dark:bg-card text-card-foreground rounded-xl border border-[#e8e8e8] dark:border-border shadow-sm p-4 sm:p-6 overflow-hidden",
+                "admin-grid-item bg-white dark:bg-card text-card-foreground rounded-xl border border-[#e8e8e8] dark:border-border shadow-sm p-4 sm:p-6",
                 effectiveField.className
               )}
             >
