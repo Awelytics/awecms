@@ -1121,6 +1121,26 @@ const EntryForm = ({
           ? `${keyPrefix}.${effectiveField.name}`
           : currentFieldName;
         
+        // Render virtual Column layout without card styling or data nesting
+        if (effectiveField.type === "column") {
+          const span = getGridSpan(effectiveField.className);
+          return (
+            <div 
+              key={currentFieldKey} 
+              data-span={span}
+              className={cn("admin-grid-item flex flex-col gap-6 w-full min-w-0", effectiveField.className)}
+            >
+              {effectiveField.fields && renderFields(
+                effectiveField.fields as FieldWithReadonlyMeta[],
+                parentName, 
+                registerBeforeSubmitHook,
+                runBeforeSubmitHooks,
+                inheritedReadonly,
+                currentFieldKey
+              )}
+            </div>
+          );
+        }
         // Render virtual Card layout without data nesting
         // Render virtual Card layout with responsive spans and soft border
         if (effectiveField.type === "card") {

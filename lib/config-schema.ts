@@ -394,7 +394,7 @@ const generateFieldObjectSchema = (
           })
           .min(1, { message: "'type' cannot be empty." })
           .refine(
-            (val) => fieldTypes.has(val) || ["object", "block", "card", "info"].includes(val),
+            (val) => fieldTypes.has(val) || ["object", "block", "card", "info", "column"].includes(val),
             {
               message: "'type' must be a valid field type.",
               path: ["type"],
