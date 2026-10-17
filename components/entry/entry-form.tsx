@@ -192,7 +192,7 @@ const SortableItem = ({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex items-center gap-x-1",
+        "flex items-center gap-x-1 w-full min-w-0 max-w-full",
         isDragging ? "opacity-50 z-50" : "z-10",
       )}
       style={style}
@@ -246,7 +246,7 @@ const ListItemRow = memo(function ListItemRow({
   const isReadonly = Boolean(field.readonly);
   return (
     <SortableItem id={id} readonly={isReadonly}>
-      <div className="grid gap-6 flex-1">
+      <div className="grid gap-6 flex-1 min-w-0 max-w-full">
         <SingleField
           field={field}
           fieldName={`${fieldName}.${index}`}
@@ -823,7 +823,7 @@ const ObjectField = forwardRef<HTMLDivElement, NestedFieldProps>(
     );
 
     return (
-      <div className="border rounded-lg">
+      <div className="border border-[#e8e8e8] dark:border-border rounded-xl overflow-hidden w-full max-w-full">
         {isCollapsible && (
           <header
             className={cn(
@@ -1130,12 +1130,12 @@ const EntryForm = ({
               key={currentFieldKey} 
               data-span={span}
               className={cn(
-                "admin-grid-item bg-white dark:bg-card text-card-foreground rounded-xl border border-[#dedcdc] dark:border-border shadow-sm p-6",
+                "admin-grid-item bg-white dark:bg-card text-card-foreground rounded-xl border border-[#e8e8e8] dark:border-border shadow-sm p-6",
                 effectiveField.className
               )}
             >
               {(effectiveField.label !== false || effectiveField.description) && (
-                <div className="mb-6 space-y-1.5 border-b border-[#dedcdc] dark:border-border pb-4">
+                <div className="mb-6 space-y-1.5 border-b border-[#e8e8e8] dark:border-border pb-4">
                   {effectiveField.label !== false && (
                     <h3 className="text-lg font-semibold leading-none tracking-tight">
                       {effectiveField.label || effectiveField.name}
@@ -1236,6 +1236,8 @@ const EntryForm = ({
           .admin-grid-item {
             grid-column: span 12 / span 12;
             width: 100%;
+            min-width: 0;
+            max-width: 100%;
           }
           @media (min-width: 768px) {
             .admin-grid-item[data-span="1"] { grid-column: span 1 / span 1; }
@@ -1252,30 +1254,62 @@ const EntryForm = ({
             .admin-grid-item[data-span="12"] { grid-column: span 12 / span 12; }
           }
 
-          /* Modern input design matching design requirements */
+          /* Modern standalone inputs */
           #entry-form input,
           #entry-form select,
           #entry-form textarea {
-            border: 1px solid #e5e5e5 !important;
-            border-radius: 10px !important;
-            transition: all 0.15s ease-in-out !important;
+            border: 1px solid #e5e5e5;
+            border-radius: 10px;
+            transition: all 0.15s ease-in-out;
             background-color: #ffffff;
-            box-shadow: none !important;
+            box-shadow: none;
           }
 
           #entry-form input:hover,
           #entry-form select:hover,
           #entry-form textarea:hover {
-            border-color: #c8c8c8 !important;
-            background-color: #fafafa !important;
+            border-color: #c8c8c8;
+            background-color: #fafafa;
           }
 
           #entry-form input:focus,
           #entry-form select:focus,
           #entry-form textarea:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+            background-color: #ffffff;
+            outline: none;
+          }
+
+          /* Reset inner input inside Combobox / InputGroup to prevent double borders */
+          #entry-form [data-slot="input-group"],
+          #entry-form div:has(> [data-slot="input-group-control"]) {
+            border: 1px solid #e5e5e5 !important;
+            border-radius: 10px !important;
+            transition: all 0.15s ease-in-out !important;
+            background-color: #ffffff !important;
+            box-shadow: none !important;
+          }
+
+          #entry-form [data-slot="input-group"]:hover,
+          #entry-form div:has(> [data-slot="input-group-control"]):hover {
+            border-color: #c8c8c8 !important;
+            background-color: #fafafa !important;
+          }
+
+          #entry-form [data-slot="input-group"]:focus-within,
+          #entry-form div:has(> [data-slot="input-group-control"]):focus-within {
             border-color: #3b82f6 !important;
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
             background-color: #ffffff !important;
+          }
+
+          #entry-form [data-slot="input-group"] input,
+          #entry-form [data-slot="input-group-control"] {
+            border: none !important;
+            border-radius: 0 !important;
+            background-color: transparent !important;
+            box-shadow: none !important;
             outline: none !important;
           }
         `}} />
