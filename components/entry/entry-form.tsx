@@ -465,7 +465,7 @@ const ListField = ({
     <FormField
       name={fieldName}
       render={() => (
-        <FormItem className={cn("col-span-12", field.className)}>
+        <FormItem className={cn("col-span-12 w-full", field.className)} style={getGridSpanStyle(field.className)}>
           {shouldShowListHeader && (
             <div className="flex items-center h-5 gap-x-2">
               {field.label !== false && (
@@ -967,7 +967,7 @@ const SingleField = ({
         name={fieldName}
         control={control}
         render={({ field: rhfManagedFieldProps }) => (
-          <FormItem className={cn("col-span-12", field.className)}>
+          <FormItem className={cn("col-span-12 w-full", field.className)} style={getGridSpanStyle(field.className)}>
             {shouldShowFieldMeta && (
               <div className="flex items-center justify-between min-h-6 gap-x-2">
                 <div className="flex items-center gap-x-2 min-w-0">
@@ -1027,6 +1027,18 @@ const SingleField = ({
 };
 
 SingleField.displayName = "SingleField";
+
+// Helper to extract grid span from className and apply it via inline styles
+// This prevents Tailwind CSS purge from dropping dynamic classes like col-span-8
+const getGridSpanStyle = (className?: string): React.CSSProperties => {
+  if (!className) return {};
+  const match = className.match(/col-span-(\d+)/);
+  if (match) {
+    const span = match[1];
+    return { gridColumn: `span ${span} / span ${span}` };
+  }
+  return {};
+};
 
 const EntryForm = ({
   fields,
@@ -1114,12 +1126,13 @@ const EntryForm = ({
           ? `${keyPrefix}.${effectiveField.name}`
           : currentFieldName;
         
-        // Handling the virtual 'Card' type (a UI card with no nested data)
-         if (effectiveField.type === "card") {
+        // Render virtual Card layout without data nesting
+        if (effectiveField.type === "card") {
           return (
             <div 
               key={currentFieldKey} 
-              className={cn("col-span-12 bg-card text-card-foreground rounded-xl border shadow-sm p-6", effectiveField.className)}
+              style={getGridSpanStyle(effectiveField.className)}
+              className={cn("col-span-12 w-full bg-card text-card-foreground rounded-xl border shadow-sm p-6", effectiveField.className)}
             >
               {(effectiveField.label !== false || effectiveField.description) && (
                 <div className="mb-6 space-y-1.5 border-b pb-4">
@@ -1135,8 +1148,8 @@ const EntryForm = ({
                   )}
                 </div>
               )}
-              {/* Render child fields within their own Grid, while preserving the parentName (without nesting the data!) */}
-              <div className="grid grid-cols-12 gap-6 items-start">
+              {/* Render child fields in a 12-column grid */}
+              <div className="grid grid-cols-12 gap-4 items-start w-full">
                 {effectiveField.fields && renderFields(
                   effectiveField.fields as FieldWithReadonlyMeta[],
                   parentName, 
@@ -1149,7 +1162,6 @@ const EntryForm = ({
             </div>
           );
         }
-
 
         if (
           effectiveField.list === true ||

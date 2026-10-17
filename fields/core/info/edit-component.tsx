@@ -10,18 +10,19 @@ export const EditComponent = ({ field }: { field: any }) => {
   const { owner, repo } = useRepo();
   const { config } = useConfig();
   
-  // The current branch is stored in the config context
   const branch = config?.branch || "";
 
   let content: string = field.content || "";
 
-  // Simple interpolator: replaces {name} with a value from the form or context
-  content = content.replace(/\{([^}]+)\}/g, (match: string, key: string) => {
+  // Replace {name} with form or context values, or fallback to an empty string if not filled yet
+  content = content.replace(/\{([^}]+)\}/g, (_match: string, key: string) => {
     if (key === "owner") return owner;
     if (key === "repo") return repo;
     if (key === "branch") return branch;
-    if (formValues[key] !== undefined) return String(formValues[key]);
-    return match;
+    if (formValues[key] !== undefined && formValues[key] !== null && formValues[key] !== "") {
+      return String(formValues[key]);
+    }
+    return "";
   });
 
   return (

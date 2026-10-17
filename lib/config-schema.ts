@@ -538,6 +538,7 @@ const ContentLeafSchema = z
     label: z.string().optional(),
     description: z.string().optional().nullable(),
     icon: z.string().optional().nullable(),
+    className: z.string().optional().nullable(),
     type: z.enum(["collection", "file"], {
       required_error: "'type' is required.",
       message: "'type' must be either 'collection' or 'file'.",
