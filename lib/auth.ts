@@ -14,6 +14,12 @@ import { render } from "@react-email/render";
 
 export const auth = betterAuth({
   baseURL: getBaseUrl(),
+  trustedOrigins: [
+    // Allow all Vercel preview and production deployments
+    "https://*.vercel.app",
+    ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
+    "http://localhost:3000",
+  ],
   secret: (process.env.AUTH_SECRET || process.env.BETTER_AUTH_SECRET) as string,
   user: {
     additionalFields: {
