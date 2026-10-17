@@ -16,6 +16,11 @@ export interface SearchEntry {
 const treeCache: Record<string, { time: number; data: SearchEntry[] }> = {};
 const CACHE_TTL = 60 * 1000; // 60 seconds
 
+const DEFAULT_MEDIA_EXTENSIONS = [
+  "jpg", "jpeg", "png", "webp", "gif", "svg", "avif", "ico",
+  "mp4", "webm", "mov", "pdf", "mp3", "wav"
+];
+
 export async function GET(
   _request: Request,
   context: { params: Promise<{ owner: string; repo: string; branch: string }> }
@@ -31,7 +36,7 @@ export async function GET(
       return Response.json({ status: "success", data: cached.data });
     }
 
-    // Fetch complete recursive file tree from GitHub in a single API call
+    // Fetch complete recursive file tree from GitHub in a single API call for the current branch
     const githubUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`;
     const ghResponse = await fetch(githubUrl, {
       headers: {
@@ -57,21 +62,25 @@ export async function GET(
       if (item.type !== "blob") continue;
       const normalizedItemPath = normalizePath(item.path);
 
-      // Check if file belongs to any content collection or single file
+      // Ignore hidden files and system directories (.gitkeep, .gitignore, .DS_Store, .github/, etc.)
+      const isHidden = normalizedItemPath.split("/").some((segment) => segment.startsWith("."));
+      if (isHidden) continue;
+
+      // 1. Check if file belongs to any content collection or single file page
       let matchedContent = false;
       for (const schema of contentSchemas) {
         if (schema.type === "collection" && schema.path) {
           const collectionRoot = normalizePath(schema.path);
           if (normalizedItemPath.startsWith(collectionRoot)) {
             const fileName = getFileName(normalizedItemPath);
-            const slug = fileName.replace(/\.[^/.]+$/, "");
             entries.push({
               id: normalizedItemPath,
               type: "content",
               title: fileName,
               subtitle: normalizedItemPath,
               path: normalizedItemPath,
-              url: `/${owner}/${repo}/${encodeURIComponent(branch)}/collection/${encodeURIComponent(schema.name)}/${encodeURIComponent(slug)}`,
+              // Exact Next.js edit route: /collection/[name]/edit/[path]
+              url: `/${owner}/${repo}/${encodeURIComponent(branch)}/collection/${encodeURIComponent(schema.name)}/edit/${encodeURIComponent(normalizedItemPath)}`,
               group: schema.label || schema.name || "Content",
             });
             matchedContent = true;
@@ -85,6 +94,7 @@ export async function GET(
               title: schema.label || schema.name,
               subtitle: normalizedItemPath,
               path: normalizedItemPath,
+              // Exact single-file route: /file/[name]
               url: `/${owner}/${repo}/${encodeURIComponent(branch)}/file/${encodeURIComponent(schema.name)}`,
               group: "Pages",
             });
@@ -96,20 +106,34 @@ export async function GET(
 
       if (matchedContent) continue;
 
-      // Check if file belongs to any media folder (including all subfolders)
+      // 2. Check if file belongs to any media folder (including all subfolders)
       for (const media of mediaSchemas) {
         if (!media.input) continue;
         const mediaRoot = normalizePath(media.input);
         if (normalizedItemPath.startsWith(mediaRoot)) {
           const fileName = getFileName(normalizedItemPath);
-          const parentDir = getParentPath(normalizedItemPath);
+          const extension = getFileExtension(fileName).toLowerCase();
+
+          // Only allow real media formats (filter out non-media files)
+          const allowedExtensions = media.extensions?.length
+            ? media.extensions.map((ext: string) => ext.toLowerCase())
+            : DEFAULT_MEDIA_EXTENSIONS;
+
+          if (!allowedExtensions.includes(extension)) {
+            continue;
+          }
+
+          const parentDir = getParentPath(normalizedItemPath) || media.input;
+          const mediaName = media.name || "default";
+
           entries.push({
             id: normalizedItemPath,
             type: "media",
             title: fileName,
             subtitle: normalizedItemPath,
             path: normalizedItemPath,
-            url: `/${owner}/${repo}/${encodeURIComponent(branch)}/media/${encodeURIComponent(media.name)}?path=${encodeURIComponent(parentDir)}`,
+            // Navigate directly into the parent folder of the media file
+            url: `/${owner}/${repo}/${encodeURIComponent(branch)}/media/${encodeURIComponent(mediaName)}?path=${encodeURIComponent(parentDir)}`,
             group: media.label || media.name || "Media",
           });
           break;
