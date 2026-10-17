@@ -1231,7 +1231,7 @@ const EntryForm = ({
         onSubmit={handleFormSubmit}
         className="w-full max-w-[1200px] mx-auto grid grid-cols-12 items-start gap-6 px-2 sm:px-4"
       >
-        {/* Responsive CSS grid: 100% width on mobile, specified columns on desktop */}
+        {/* Responsive grid rules & modern input styling */}
         <style dangerouslySetInnerHTML={{ __html: `
           .admin-grid-item {
             grid-column: span 12 / span 12;
@@ -1250,6 +1250,33 @@ const EntryForm = ({
             .admin-grid-item[data-span="10"] { grid-column: span 10 / span 10; }
             .admin-grid-item[data-span="11"] { grid-column: span 11 / span 11; }
             .admin-grid-item[data-span="12"] { grid-column: span 12 / span 12; }
+          }
+
+          /* Modern input design matching design requirements */
+          #entry-form input,
+          #entry-form select,
+          #entry-form textarea {
+            border: 1px solid #e5e5e5 !important;
+            border-radius: 10px !important;
+            transition: all 0.15s ease-in-out !important;
+            background-color: #ffffff;
+            box-shadow: none !important;
+          }
+
+          #entry-form input:hover,
+          #entry-form select:hover,
+          #entry-form textarea:hover {
+            border-color: #c8c8c8 !important;
+            background-color: #fafafa !important;
+          }
+
+          #entry-form input:focus,
+          #entry-form select:focus,
+          #entry-form textarea:focus {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
+            background-color: #ffffff !important;
+            outline: none !important;
           }
         `}} />
 
