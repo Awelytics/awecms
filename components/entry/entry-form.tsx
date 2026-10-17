@@ -202,7 +202,7 @@ const SortableItem = ({
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="h-auto w-6 self-stretch cursor-move text-muted-foreground hover:text-foreground"
+          className="h-auto w-6 self-stretch cursor-move text-muted-foreground hover:text-foreground shrink-0"
           {...attributes}
           {...listeners}
         >
@@ -271,7 +271,7 @@ const ListItemRow = memo(function ListItemRow({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="text-muted-foreground hover:text-foreground self-start"
+                  className="text-muted-foreground hover:text-foreground self-start shrink-0"
                   onClick={() => onRequestRemove(index)}
                 >
                   <Trash2 />
@@ -1130,7 +1130,7 @@ const EntryForm = ({
               key={currentFieldKey} 
               data-span={span}
               className={cn(
-                "admin-grid-item bg-white dark:bg-card text-card-foreground rounded-xl border border-[#e8e8e8] dark:border-border shadow-sm p-6",
+                "admin-grid-item bg-white dark:bg-card text-card-foreground rounded-xl border border-[#e8e8e8] dark:border-border shadow-sm p-4 sm:p-6 overflow-hidden",
                 effectiveField.className
               )}
             >
@@ -1235,9 +1235,9 @@ const EntryForm = ({
         <style dangerouslySetInnerHTML={{ __html: `
           .admin-grid-item {
             grid-column: span 12 / span 12;
-            width: 100%;
             min-width: 0;
             max-width: 100%;
+            box-sizing: border-box;
           }
           @media (min-width: 768px) {
             .admin-grid-item[data-span="1"] { grid-column: span 1 / span 1; }
