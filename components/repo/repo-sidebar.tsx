@@ -1,7 +1,7 @@
 "use client";
 
-import { icons, ArrowLeft, ArrowUpRight, ... } from "lucide-react";
 import * as LucideIcons from "lucide-react";
+import { icons } from "lucide-react";
 import { RepoSearchDialog } from "@/components/repo/repo-search-dialog";
 import {
   Fragment,
@@ -406,8 +406,9 @@ export function RepoSidebar() {
   );
 
   const getNodeIcon = (node: NavigationNode) => {
-  if (node.icon) {
-      const IconComponent = (icons as any)[node.icon] || (LucideIcons as any)[node.icon];
+    if (node.icon) {
+      const IconMap = icons as unknown as Record<string, React.ComponentType<{ className?: string }>>;
+      const IconComponent = IconMap[node.icon];
       if (IconComponent) return <IconComponent className="size-4" />;
     }
     if (node.type === "collection") return <FileStack className="size-4" />;
