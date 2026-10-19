@@ -31,9 +31,10 @@ export const EditComponent = ({ field }: { field: any }) => {
       const parsedRules: Array<{ from: string; to: string; status: number }> = [];
 
       for (const item of items) {
-        const fromMatch = item.match(/from:\s*['"]?([^'"\r\n]+)['"]?/);
-        const toMatch = item.match(/to:\s*['"]?([^'"\r\n]+)['"]?/);
-        const statusMatch = item.match(/status:\s*['"]?(\d+)['"]?/);
+        // Understands both single-line and multi-line formats seamlessly
+        const fromMatch = item.match(/from:\s*['"]?(\S+?)['"]?(?:\s+to:|\r?\n|$)/i);
+        const toMatch = item.match(/to:\s*['"]?(\S+?)['"]?(?:\s+status:|\r?\n|$)/i);
+        const statusMatch = item.match(/status:\s*['"]?(\d+)['"]?/i);
 
         if (!fromMatch || !toMatch) continue;
 
@@ -41,12 +42,11 @@ export const EditComponent = ({ field }: { field: any }) => {
         let to = toMatch[1].trim();
         const status = statusMatch ? parseInt(statusMatch[1], 10) : 301;
 
-        // Auto-sanitize identical to Astro config logic
         if (!from.startsWith("/")) from = `/${from}`;
         if (!to.startsWith("/") && !to.startsWith("http")) to = `/${to}`;
 
         parsedRules.push({ from, to, status });
-      }
+    }
 
       if (parsedRules.length === 0) {
         return `
