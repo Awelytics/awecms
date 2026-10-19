@@ -20,13 +20,11 @@ export const EditComponent = ({ field }: { field: any }) => {
     (_match: string, sourceField: string = "body") => {
       const rawText = String(formValues[sourceField] || "");
       
-      // Filter out comments
       const cleanLines = rawText
         .split("\n")
         .filter((l) => !l.trim().startsWith("#"))
         .join("\n");
 
-      // FIX 1: Prepend newline so the very first "- from:" always matches cleanly
       const normalized = "\n" + cleanLines;
       const items = normalized.split(/\n\s*-\s+/).slice(1);
 
@@ -38,11 +36,16 @@ export const EditComponent = ({ field }: { field: any }) => {
         const statusMatch = item.match(/status:\s*['"]?(\d+)['"]?/);
 
         if (!fromMatch || !toMatch) continue;
-        parsedRules.push({
-          from: fromMatch[1].trim(),
-          to: toMatch[1].trim(),
-          status: statusMatch ? parseInt(statusMatch[1], 10) : 301,
-        });
+
+        let from = fromMatch[1].trim();
+        let to = toMatch[1].trim();
+        const status = statusMatch ? parseInt(statusMatch[1], 10) : 301;
+
+        // Auto-sanitize identical to Astro config logic
+        if (!from.startsWith("/")) from = `/${from}`;
+        if (!to.startsWith("/") && !to.startsWith("http")) to = `/${to}`;
+
+        parsedRules.push({ from, to, status });
       }
 
       if (parsedRules.length === 0) {
@@ -53,22 +56,28 @@ export const EditComponent = ({ field }: { field: any }) => {
         `;
       }
 
-      // FIX 2: Fixed table-layout with word-break and exact column percentages
       const rows = parsedRules
         .map(
-          (rule, idx) => `
-          <tr style="border-bottom: 1px solid #f1f5f9; color: #334155;">
-            <td style="padding: 10px 6px; color: #94a3b8; font-size: 11px; vertical-align: top;">${idx + 1}</td>
-            <td style="padding: 10px 8px; font-family: monospace; font-size: 12px; font-weight: 500; color: #b91c1c; word-break: break-all; overflow-wrap: anywhere; vertical-align: top;">${rule.from}</td>
-            <td style="padding: 10px 4px; text-align: center; color: #94a3b8; font-size: 12px; vertical-align: top;">→</td>
-            <td style="padding: 10px 8px; font-family: monospace; font-size: 12px; font-weight: 500; color: #15803d; word-break: break-all; overflow-wrap: anywhere; vertical-align: top;">${rule.to}</td>
-            <td style="padding: 10px 6px; text-align: right; vertical-align: top; white-space: nowrap;">
-              <span style="background: #eff6ff; color: #1d4ed8; padding: 2px 7px; border-radius: 4px; font-weight: 600; font-size: 11px; border: 1px solid #bfdbfe; display: inline-block;">
-                HTTP ${rule.status}
-              </span>
-            </td>
-          </tr>
-        `
+          (rule, idx) => {
+            const is302 = rule.status === 302;
+            const badgeBg = is302 ? "#fffbeb" : "#eff6ff";
+            const badgeColor = is302 ? "#b45309" : "#1d4ed8";
+            const badgeBorder = is302 ? "#fde68a" : "#bfdbfe";
+
+            return `
+            <tr style="border-bottom: 1px solid #f1f5f9; color: #334155;">
+              <td style="padding: 10px 6px; color: #94a3b8; font-size: 11px; vertical-align: top;">${idx + 1}</td>
+              <td style="padding: 10px 8px; font-family: monospace; font-size: 12px; font-weight: 500; color: #b91c1c; word-break: break-all; overflow-wrap: anywhere; vertical-align: top;">${rule.from}</td>
+              <td style="padding: 10px 4px; text-align: center; color: #94a3b8; font-size: 12px; vertical-align: top;">→</td>
+              <td style="padding: 10px 8px; font-family: monospace; font-size: 12px; font-weight: 500; color: #15803d; word-break: break-all; overflow-wrap: anywhere; vertical-align: top;">${rule.to}</td>
+              <td style="padding: 10px 12px 10px 4px; text-align: right; vertical-align: top; white-space: nowrap;">
+                <span style="background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; padding: 2px 7px; border-radius: 4px; font-weight: 600; font-size: 11px; display: inline-block;">
+                  HTTP ${rule.status}
+                </span>
+              </td>
+            </tr>
+          `;
+          }
         )
         .join("");
 
@@ -78,10 +87,10 @@ export const EditComponent = ({ field }: { field: any }) => {
             <thead>
               <tr style="border-bottom: 1px solid #e2e8f0; background: #f8fafc; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;">
                 <th style="padding: 9px 6px; width: 34px;">#</th>
-                <th style="padding: 9px 8px; width: calc(50% - 65px);">From (Source)</th>
+                <th style="padding: 9px 8px; width: calc(50% - 73px);">From (Source)</th>
                 <th style="padding: 9px 4px; width: 24px; text-align: center;"></th>
-                <th style="padding: 9px 8px; width: calc(50% - 65px);">To (Destination)</th>
-                <th style="padding: 9px 6px; text-align: right; width: 72px;">Status</th>
+                <th style="padding: 9px 8px; width: calc(50% - 73px);">To (Destination)</th>
+                <th style="padding: 9px 12px 9px 4px; text-align: right; width: 88px;">Status</th>
               </tr>
             </thead>
             <tbody>
