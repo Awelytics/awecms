@@ -20,17 +20,31 @@ type NavigationNode = {
   items?: NavigationNode[];
 };
 
+
+// Helper to unpack visual wrappers (column, card) so data stays 100% flat
+const flattenLayoutFields = (fields: Field[]): Field[] => {
+  if (!fields) return [];
+  return fields.flatMap((field: any) => {
+    if ((field.type === "column" || field.type === "card") && Array.isArray(field.fields)) {
+      return flattenLayoutFields(field.fields);
+    }
+    return [field];
+  });
+};
+
+
 // Deep map a content object to a schema
 const deepMap = (
   contentObject: Record<string, any>,
   fields: Field[],
   apply: (value: any, field: Field) => any
 ): Record<string, any> => {
-  const traverse = (data: any, schema: Field[]): any => {
+    const traverse = (data: any, schema: Field[]): any => {
     const result: any = {};
     const currentData = data || {}; // Ensure data is an object
+    const flatSchema = flattenLayoutFields(schema);
 
-    schema.forEach(field => {
+    flatSchema.forEach(field => {
       const value = currentData[field.name];
 
       if (field.list) {
@@ -149,7 +163,9 @@ const generateZodSchema = (
   ignoreHidden: boolean = false
 ): z.ZodTypeAny => {
   const buildSchemaObject = (currentFields: Field[]): Record<string, z.ZodTypeAny> => {
-    return currentFields.reduce((acc: Record<string, z.ZodTypeAny>, field) => {
+    const flatFields = flattenLayoutFields(currentFields);
+
+    return flatFields.reduce((acc: Record<string, z.ZodTypeAny>, field) => {
       if (ignoreHidden && field.hidden) return acc;
 
       let fieldSchema: z.ZodTypeAny;
@@ -366,8 +382,10 @@ function interpolate(input: string, data: Record<string, any>, prefixFallback?: 
 
 // Get a field by its path
 function getFieldByPath(schema: Field[], path: string): Field | undefined {
+  if (!schema || !path) return undefined;
+  const flatSchema = flattenLayoutFields(schema);
   const [first, ...rest] = path.split('.');
-  const field = schema.find(f => f.name === first);
+  const field = flatSchema.find(f => f.name === first);
   
   return !field ? undefined
     : rest.length === 0 ? field
@@ -381,8 +399,9 @@ function findNestedFieldPath(
   prefix?: string,
 ): string | undefined {
   if (!fields?.length) return undefined;
+  const flatFields = flattenLayoutFields(fields);
 
-  for (const field of fields) {
+  for (const field of flatFields) { 
     const path = prefix ? `${prefix}.${field.name}` : field.name;
 
     if (matcher(field)) {
