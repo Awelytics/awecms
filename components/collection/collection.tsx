@@ -171,6 +171,16 @@ const CollectionHeaderActions = memo(function CollectionHeaderActions({
   );
 });
 
+function getFlatFields(fields: any[]): any[] {
+  if (!fields) return [];
+  return fields.flatMap((field: any) => {
+    if ((field.type === "column" || field.type === "card") && Array.isArray(field.fields)) {
+      return getFlatFields(field.fields);
+    }
+    return [field];
+  });
+}
+
 export function Collection({ name, path }: { name: string; path?: string }) {
   const [tableSearch, setTableSearch] = useState("");
   const [data, setData] = useState<Record<string, any>[]>([]);
@@ -201,18 +211,21 @@ export function Collection({ name, path }: { name: string; path?: string }) {
   const viewFields = useMemo(() => {
     let pathAndFieldArray: any[] = [];
     if (schema.fields) {
+      // 1. Сначала разворачиваем поля из column и card в плоский массив
+      const flatFields = getFlatFields(schema.fields);
+
       if (schema.view?.fields && schema.view?.fields.length > 0) {
         // If we have a list of fields defined for the view
         schema.view.fields.forEach((path: string) => {
-          const field = getFieldByPath(schema.fields, path);
-          if (field && !["object", "block"].includes(field.type))
+          const field = getFieldByPath(flatFields, path); // <--- Ищем в развернутых полях!
+          if (field && !["object", "block", "column", "card", "info"].includes(field.type))
             pathAndFieldArray.push({ path: path, field: field });
         });
       } else {
-        pathAndFieldArray = schema.fields
+        pathAndFieldArray = flatFields
           .filter(
             (field: any) =>
-              !["object", "block"].includes(field.type) && !field.hidden,
+              !["object", "block", "column", "card", "info"].includes(field.type) && !field.hidden,
           )
           .map((field: any) => ({ path: field.name, field: field }));
       }
@@ -231,7 +244,7 @@ export function Collection({ name, path }: { name: string; path?: string }) {
     // view fields and is not an actual field, or if there are no fields, we add a date field
     if (
       !pathAndFieldArray.find((item: any) => item.path === "date") &&
-      schema.filename.startsWith("{year}-{month}-{day}") &&
+      schema.filename?.startsWith("{year}-{month}-{day}") &&
       ((schema.view?.fields && schema.view?.fields.includes("date")) ||
         !schema.view?.fields)
     ) {
